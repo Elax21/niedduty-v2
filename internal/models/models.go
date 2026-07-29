@@ -21,16 +21,28 @@ const (
 	PermBeteiligung = "beteiligung" // Trainingsbeteiligung aller ansehen
 )
 
-// User — Login-Konto.
+// User — Login-Konto. Login primär über Alias; E-Mail optional (nur Admin/Kontakt).
 type User struct {
 	ID           uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	Email        string     `gorm:"uniqueIndex;not null" json:"email"`
+	Alias        string     `gorm:"uniqueIndex;not null" json:"alias"` // Login-Handle, klein geschrieben
+	Email        *string    `gorm:"uniqueIndex" json:"email"`          // optional
 	Name         string     `gorm:"not null" json:"name"`
 	PasswordHash string     `gorm:"not null" json:"-"`
 	Role         string     `gorm:"not null;default:MEMBER" json:"role"`
 	Permissions  []string   `gorm:"serializer:json;type:jsonb;not null;default:'[]'" json:"permissions"`
 	PlayerID     *uuid.UUID `gorm:"type:uuid" json:"playerId"`
 	CreatedAt    time.Time  `json:"createdAt"`
+}
+
+// Invite — teilbarer Einladungslink zur Selbstregistrierung.
+// MaxUses = 0 → unbegrenzt. Active=false → Link ungültig (z.B. neu erzeugt).
+type Invite struct {
+	Token     string     `gorm:"primaryKey" json:"token"`
+	Active    bool       `gorm:"not null;default:true" json:"active"`
+	MaxUses   int        `gorm:"not null;default:0" json:"maxUses"`
+	UseCount  int        `gorm:"not null;default:0" json:"useCount"`
+	ExpiresAt *time.Time `json:"expiresAt"`
+	CreatedAt time.Time  `json:"createdAt"`
 }
 
 // Can prüft ein Recht; Admin darf alles.
@@ -64,8 +76,13 @@ type Club struct {
 	KasseIban      string `json:"kasseIban"`
 	KasseInhaber   string `json:"kasseInhaber"`
 	Liga           string `json:"liga"`
-	// fussball.de-Widget-URL für die Live-Tabelle (leer = manuelle Pflege)
-	FussballDeWidget string `json:"fussballDeWidget"`
+	// fussball.de-Widget-IDs (next.fussball.de). Leer = Bereich zeigt Platzhalter
+	// bzw. manuelle Tabellenpflege. Eingebunden via widgets.js + data-type.
+	FussballTableId     string `json:"fussballTableId"`     // data-type=table
+	FussballMatchesId   string `json:"fussballMatchesId"`   // data-type=team-matches (letzte + nächste)
+	FussballNextMatchId string `json:"fussballNextMatchId"` // data-type=next-match
+	// Optionaler Link auf den geteilten Google-Team-Kalender.
+	GoogleCalendarUrl string `json:"googleCalendarUrl"`
 }
 
 // Player — Kader-Eintrag (schlank: Basis für Beteiligung + Strafen).

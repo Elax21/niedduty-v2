@@ -17,6 +17,7 @@ func Open(dsn string) (*gorm.DB, error) {
 	}
 	if err := db.AutoMigrate(
 		&models.User{},
+		&models.Invite{},
 		&models.Session{},
 		&models.Club{},
 		&models.Player{},

@@ -22,6 +22,8 @@ func (a *API) Routes(r *gin.Engine) {
 
 	r.POST("/api/auth/login", a.Login)
 	r.POST("/api/auth/logout", a.Logout)
+	r.POST("/api/auth/register", a.Register)
+	r.GET("/api/invite/:token", a.CheckInvite)
 
 	auth := r.Group("/api", middleware.Auth(a.db))
 	{
@@ -31,7 +33,9 @@ func (a *API) Routes(r *gin.Engine) {
 		auth.GET("/table", a.GetTable)
 		auth.GET("/penalties", a.ListPenalties)
 		auth.GET("/player-penalties", a.ListPlayerPenalties)
+		auth.GET("/player-penalties/summary", a.PenaltiesSummary)
 		auth.GET("/events", a.ListEvents)
+		auth.GET("/fussball/matches", a.GetMatches)
 		auth.GET("/attendance", a.ListAttendance)
 		// Spieler dürfen die eigene Zu-/Absage setzen; Handler prüft Ownership.
 		auth.PUT("/attendance", a.SetAttendance)
@@ -62,6 +66,9 @@ func (a *API) Routes(r *gin.Engine) {
 		admin := auth.Group("", middleware.RequireAdmin())
 		{
 			admin.PUT("/club", a.UpdateClub)
+		admin.GET("/invite", a.GetInvite)
+		admin.POST("/invite", a.CreateInvite)
+		admin.DELETE("/invite", a.DeactivateInvite)
 			admin.GET("/users", a.ListUsers)
 			admin.POST("/users", a.CreateUser)
 			admin.PUT("/users/:id", a.UpdateUser)
@@ -70,6 +77,7 @@ func (a *API) Routes(r *gin.Engine) {
 			admin.PUT("/players/:id", a.UpdatePlayer)
 			admin.DELETE("/players/:id", a.DeletePlayer)
 			admin.PUT("/table", a.ReplaceTable)
+		admin.POST("/table/sync", a.SyncTable)
 		}
 	}
 }

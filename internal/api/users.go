@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/alessandro/niedduty/internal/middleware"
 	"github.com/alessandro/niedduty/internal/models"
@@ -32,7 +33,8 @@ func (a *API) ListUsers(c *gin.Context) {
 }
 
 type createUserReq struct {
-	Email       string     `json:"email" binding:"required,email,max=120"`
+	Alias       string     `json:"alias" binding:"required"`
+	Email       string     `json:"email" binding:"omitempty,email,max=120"`
 	Name        string     `json:"name" binding:"required,max=100"`
 	Password    string     `json:"password" binding:"required,min=8,max=100"`
 	Permissions []string   `json:"permissions"`
@@ -42,11 +44,16 @@ type createUserReq struct {
 func (a *API) CreateUser(c *gin.Context) {
 	var req createUserReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "E-Mail, Name und Passwort (min. 8 Zeichen) angeben"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Alias, Name und Passwort (min. 8 Zeichen) angeben"})
 		return
 	}
 	if !checkPerms(req.Permissions) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Unbekanntes Recht"})
+		return
+	}
+	alias := strings.ToLower(strings.TrimSpace(req.Alias))
+	if !aliasRe.MatchString(alias) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Alias: 3–24 Zeichen, nur a–z, 0–9, . _ -"})
 		return
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
@@ -57,12 +64,16 @@ func (a *API) CreateUser(c *gin.Context) {
 	if req.Permissions == nil {
 		req.Permissions = []string{}
 	}
+	var email *string
+	if e := strings.TrimSpace(req.Email); e != "" {
+		email = &e
+	}
 	u := models.User{
-		Email: req.Email, Name: req.Name, PasswordHash: string(hash),
+		Alias: alias, Email: email, Name: req.Name, PasswordHash: string(hash),
 		Role: models.RoleMember, Permissions: req.Permissions, PlayerID: req.PlayerID,
 	}
 	if err := a.db.Create(&u).Error; err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "E-Mail bereits vergeben"})
+		c.JSON(http.StatusConflict, gin.H{"error": "Alias oder E-Mail bereits vergeben"})
 		return
 	}
 	c.JSON(http.StatusCreated, u)

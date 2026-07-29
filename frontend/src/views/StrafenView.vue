@@ -2,19 +2,23 @@
 import { ref, computed, onMounted } from 'vue';
 import { api, apiError } from '../services/api';
 import { useAuthStore } from '../stores/auth';
-import { enterRows } from '../lib/motion';
+import { enterRows, countUp } from '../lib/motion';
 import { shareKasseImage } from '../lib/shareImage';
 import { Plus, Trash2, Check, Share2, Pencil } from 'lucide-vue-next';
 import AppModal from '../components/AppModal.vue';
-import ScoreBoard from '../components/ScoreBoard.vue';
 import type { Penalty, Player, PlayerPenalty } from '../types';
 
 const auth = useAuthStore();
+const tab = ref<'kasse' | 'katalog'>('kasse');
 const catalog = ref<Penalty[]>([]);
 const assigned = ref<PlayerPenalty[]>([]);
 const players = ref<Player[]>([]);
 const error = ref('');
 const shareMsg = ref('');
+const openShown = ref(0);
+const paidShown = ref(0);
+const teamOpen = ref(0);
+const teamOpenShown = ref(0);
 
 const canWrite = computed(() => auth.can('strafen'));
 
@@ -34,25 +38,28 @@ const byPlayer = computed(() => {
 		entry.items.push(pp);
 		if (!pp.paid) entry.open += pp.amount;
 	}
-	return [...map.values()]
-		.filter((e) => e.items.length)
-		.sort((a, b) => b.open - a.open);
+	return [...map.values()].filter((e) => e.items.length).sort((a, b) => b.open - a.open);
 });
 
 async function load() {
-	const [c, a, p] = await Promise.all([
+	const [c, a, p, s] = await Promise.all([
 		api.get<Penalty[]>('/penalties'),
 		api.get<PlayerPenalty[]>('/player-penalties'),
-		api.get<Player[]>('/players')
+		api.get<Player[]>('/players'),
+		api.get<{ totalOpen: number; totalPaid: number }>('/player-penalties/summary')
 	]);
 	catalog.value = c.data;
 	assigned.value = a.data;
 	players.value = p.data;
-	selected.value.clear();
+	teamOpen.value = s.data.totalOpen;
+	selected.value = new Set();
+	countUp(openSum.value, (v) => (openShown.value = v));
+	countUp(paidSum.value, (v) => (paidShown.value = v));
+	countUp(teamOpen.value, (v) => (teamOpenShown.value = v));
 	requestAnimationFrame(() => enterRows('.str-anim'));
 }
 
-// ── Strafe(n) aufschreiben: mehrere Spieler × mehrere Vergehen ──
+// ── Strafe(n) aufschreiben ──
 const showAssign = ref(false);
 const assignPlayers = ref<string[]>([]);
 const assignPenalties = ref<string[]>([]);
@@ -91,12 +98,11 @@ async function submitAssign() {
 	}
 }
 
-// ── Auswahl + Bulk-Aktionen ──
+// ── Auswahl + Bulk ──
 const selected = ref(new Set<string>());
 function toggleSelect(id: string) {
 	const s = new Set(selected.value);
-	if (s.has(id)) s.delete(id);
-	else s.add(id);
+	s.has(id) ? s.delete(id) : s.add(id);
 	selected.value = s;
 }
 async function bulkPaid(paid: boolean) {
@@ -120,9 +126,7 @@ async function shareStatus() {
 	shareMsg.value = '';
 	const result = await shareKasseImage({
 		clubName: auth.club?.name ?? 'Aramäer Ahlen',
-		rows: byPlayer.value
-			.filter((e) => e.open > 0)
-			.map((e) => ({ name: e.player.name, open: e.open, count: e.items.filter((i) => !i.paid).length })),
+		rows: byPlayer.value.filter((e) => e.open > 0).map((e) => ({ name: e.player.name, open: e.open, count: e.items.filter((i) => !i.paid).length })),
 		totalOpen: openSum.value,
 		iban: auth.club?.kasseIban || undefined,
 		inhaber: auth.club?.kasseInhaber || undefined
@@ -132,7 +136,7 @@ async function shareStatus() {
 	if (result === 'failed') shareMsg.value = 'Bild konnte nicht erstellt werden.';
 }
 
-// ── Katalog pflegen ──
+// ── Katalog ──
 const showCatalogForm = ref(false);
 const editCatalogId = ref<string | null>(null);
 const catalogForm = ref({ label: '', amountEuro: '', unit: '' });
@@ -140,11 +144,13 @@ const catalogForm = ref({ label: '', amountEuro: '', unit: '' });
 function openCatalogCreate() {
 	editCatalogId.value = null;
 	catalogForm.value = { label: '', amountEuro: '', unit: '' };
+	error.value = '';
 	showCatalogForm.value = true;
 }
 function openCatalogEdit(p: Penalty) {
 	editCatalogId.value = p.id;
 	catalogForm.value = { label: p.label, amountEuro: (p.amount / 100).toFixed(2).replace('.', ','), unit: p.unit };
+	error.value = '';
 	showCatalogForm.value = true;
 }
 async function submitCatalog() {
@@ -180,104 +186,113 @@ onMounted(load);
 
 <template>
 	<div class="page-head">
-		<h1>Strafenkatalog &amp; Kasse</h1>
-		<div style="display: flex; gap: 8px; flex-wrap: wrap">
-			<button class="btn gold sm" :disabled="sharing" @click="shareStatus">
-				<Share2 :size="14" aria-hidden="true" /> {{ sharing ? 'Erstelle …' : 'WhatsApp-Status' }}
-			</button>
-			<button v-if="canWrite" class="btn primary sm" @click="openAssign"><Plus :size="14" aria-hidden="true" /> Strafe aufschreiben</button>
+		<h1>{{ canWrite ? 'Kasse' : 'Meine Strafen' }}</h1>
+		<button v-if="canWrite" class="btn sm gold" :disabled="sharing" @click="shareStatus">
+			<Share2 :size="14" /> {{ sharing ? '…' : 'Status' }}
+		</button>
+	</div>
+
+	<p v-if="shareMsg" class="form-ok" role="status">{{ shareMsg }}</p>
+
+	<!-- KPIs -->
+	<div v-if="canWrite" class="stat-row str-anim">
+		<div class="stat rot">
+			<div class="k">Offen</div>
+			<div class="v" style="font-size: 22px">{{ euro(openShown) }}</div>
+		</div>
+		<div class="stat gruen">
+			<div class="k">Bezahlt</div>
+			<div class="v" style="font-size: 22px">{{ euro(paidShown) }}</div>
+		</div>
+	</div>
+	<div v-else class="stat-row str-anim">
+		<div class="stat rot">
+			<div class="k">Dein offener Betrag</div>
+			<div class="v" style="font-size: 22px">{{ euro(openShown) }}</div>
+		</div>
+		<div class="stat">
+			<div class="k">Kasse gesamt offen</div>
+			<div class="v" style="font-size: 22px">{{ euro(teamOpenShown) }}</div>
 		</div>
 	</div>
 
-	<p v-if="shareMsg" class="form-error" style="color: var(--gold); border-color: var(--hair-strong); background: var(--gold-bg)" role="status">{{ shareMsg }}</p>
+	<div v-if="auth.club?.kasseIban" class="iban-card str-anim">
+		<div class="k">Mannschaftskasse</div>
+		<div class="mono iban">{{ auth.club.kasseIban }}</div>
+		<div class="inh">{{ auth.club.kasseInhaber }}</div>
+	</div>
 
-	<div class="card str-anim" style="margin-bottom: 16px">
-		<div class="card-body" style="display: flex; gap: 28px; flex-wrap: wrap">
-			<ScoreBoard :value="euro(openSum)" label="Offen" />
-			<ScoreBoard :value="euro(paidSum)" label="Bezahlt" />
-			<div v-if="auth.club?.kasseIban" style="margin-left: auto; font-size: 12.5px; color: var(--kreide-70)">
-				<div class="board-label" style="margin: 0 0 4px">Mannschaftskasse</div>
-				<div style="font-family: var(--font-mono)">{{ auth.club.kasseIban }}</div>
-				<div>{{ auth.club.kasseInhaber }}</div>
+	<div class="segmented" style="margin-top: 16px">
+		<button :class="{ active: tab === 'kasse' }" @click="tab = 'kasse'">Kasse</button>
+		<button :class="{ active: tab === 'katalog' }" @click="tab = 'katalog'">Katalog</button>
+	</div>
+
+	<!-- Bulk-Leiste -->
+	<div v-if="canWrite && selected.size" class="bulk-bar" role="toolbar">
+		<strong class="mono">{{ selected.size }}</strong>
+		<button class="btn sm gold" @click="bulkPaid(true)"><Check :size="13" /> Bezahlt</button>
+		<button class="btn sm" @click="bulkPaid(false)">Offen</button>
+		<button class="btn sm danger" @click="bulkDelete"><Trash2 :size="13" /></button>
+		<button class="btn sm ghost" style="margin-left: auto" @click="selected = new Set()">×</button>
+	</div>
+
+	<!-- ── KASSE ── -->
+	<template v-if="tab === 'kasse'">
+		<div v-if="byPlayer.length" class="stack">
+			<div v-for="entry in byPlayer" :key="entry.player.id" class="card str-anim">
+				<div class="kasse-head">
+					<strong>{{ entry.player.name }}</strong>
+					<span class="tally" aria-hidden="true">
+						<i v-for="n in Math.min(entry.items.filter(i => !i.paid).length, 12)" :key="n" class="stroke" :class="{ five: n % 5 === 0 }" />
+					</span>
+					<span class="mono kasse-sum" :style="{ color: entry.open ? 'var(--bad)' : 'var(--gruen)' }">{{ euro(entry.open) }}</span>
+				</div>
+				<div class="card-body flush">
+					<div v-for="pp in entry.items" :key="pp.id" class="kasse-item" :class="{ paid: pp.paid }">
+						<input v-if="canWrite" type="checkbox" class="kasse-check" :checked="selected.has(pp.id)" :aria-label="`${pp.label} auswählen`" @change="toggleSelect(pp.id)" />
+						<span class="grow">{{ pp.label }}</span>
+						<span class="mono">{{ euro(pp.amount) }}</span>
+						<button v-if="canWrite" class="btn sm icon" :class="{ gold: pp.paid }" :aria-label="pp.paid ? 'Als offen' : 'Als bezahlt'" @click="togglePaid(pp)"><Check :size="13" /></button>
+					</div>
+				</div>
 			</div>
 		</div>
-	</div>
+		<div v-else class="card"><div class="empty">Noch keine Strafen aufgeschrieben. Die Kasse dankt trotzdem.</div></div>
+	</template>
 
-	<div v-if="canWrite && selected.size" class="bulk-bar" role="toolbar" aria-label="Aktionen für ausgewählte Strafen">
-		<strong class="num">{{ selected.size }} ausgewählt</strong>
-		<button class="btn sm gold" @click="bulkPaid(true)"><Check :size="13" aria-hidden="true" /> Bezahlt</button>
-		<button class="btn sm" @click="bulkPaid(false)">Offen</button>
-		<button class="btn sm danger" @click="bulkDelete"><Trash2 :size="13" aria-hidden="true" /> Löschen</button>
-		<button class="btn sm" style="margin-left: auto" @click="selected = new Set()">Auswahl aufheben</button>
-	</div>
-
-	<div class="grid cols-2">
-		<div class="card str-anim">
+	<!-- ── KATALOG ── -->
+	<template v-else>
+		<div class="card">
 			<div class="card-head">
-				<h2>Katalog</h2>
-				<button v-if="canWrite" class="btn sm" @click="openCatalogCreate"><Plus :size="13" aria-hidden="true" /> Eintrag</button>
+				<h2>Strafenkatalog</h2>
+				<button v-if="canWrite" class="btn sm" @click="openCatalogCreate"><Plus :size="13" /> Neu</button>
 			</div>
 			<div class="card-body flush">
-				<table class="tbl">
-					<tbody>
-						<tr v-for="p in catalog" :key="p.id">
-							<td>
-								{{ p.label }}
-								<span v-if="p.unit" style="color: var(--kreide-45); font-size: 12px"> {{ p.unit }}</span>
-							</td>
-							<td class="num" style="color: var(--gold); font-weight: 600; width: 90px">{{ euro(p.amount) }}</td>
-							<td v-if="canWrite" style="width: 76px; text-align: right; white-space: nowrap">
-								<button class="btn sm" aria-label="Bearbeiten" @click="openCatalogEdit(p)"><Pencil :size="12" /></button>
-								<button class="btn sm danger" aria-label="Löschen" @click="removeCatalog(p)"><Trash2 :size="12" /></button>
-							</td>
-						</tr>
-					</tbody>
-				</table>
+				<div v-for="p in catalog" :key="p.id" class="lrow">
+					<span class="grow">
+						<span class="t">{{ p.label }}</span>
+						<span v-if="p.unit" class="s">{{ p.unit }}</span>
+					</span>
+					<span class="mono" style="color: var(--gold); font-weight: 600">{{ euro(p.amount) }}</span>
+					<template v-if="canWrite">
+						<button class="btn sm icon ghost" aria-label="Bearbeiten" @click="openCatalogEdit(p)"><Pencil :size="13" /></button>
+						<button class="btn sm icon danger" aria-label="Löschen" @click="removeCatalog(p)"><Trash2 :size="13" /></button>
+					</template>
+				</div>
 				<p v-if="!catalog.length" class="empty">Noch kein Katalog. Lege den ersten Eintrag an.</p>
 			</div>
 		</div>
+	</template>
 
-		<div class="card str-anim">
-			<div class="card-head"><h2>Kasse nach Spieler</h2></div>
-			<div class="card-body flush">
-				<div v-for="entry in byPlayer" :key="entry.player.id" class="kasse-player">
-					<div class="kasse-head">
-						<strong>{{ entry.player.name }}</strong>
-						<span class="tally" aria-hidden="true">
-							<i v-for="n in Math.min(entry.items.filter(i => !i.paid).length, 12)" :key="n" class="stroke" :class="{ five: n % 5 === 0 }" />
-						</span>
-						<span class="num kasse-sum" :style="{ color: entry.open ? 'var(--bad)' : 'var(--gruen)' }">
-							{{ euro(entry.open) }}
-						</span>
-					</div>
-					<div v-for="pp in entry.items" :key="pp.id" class="kasse-item" :class="{ paid: pp.paid }">
-						<input
-							v-if="canWrite"
-							type="checkbox"
-							class="kasse-check"
-							:checked="selected.has(pp.id)"
-							:aria-label="`${pp.label} auswählen`"
-							@change="toggleSelect(pp.id)"
-						/>
-						<span>{{ pp.label }}</span>
-						<span class="num">{{ euro(pp.amount) }}</span>
-						<button v-if="canWrite" class="btn sm" :class="{ gold: pp.paid }" :aria-label="pp.paid ? 'Als offen markieren' : 'Als bezahlt markieren'" @click="togglePaid(pp)">
-							<Check :size="12" />
-						</button>
-					</div>
-				</div>
-				<p v-if="!byPlayer.length" class="empty">Noch keine Strafen aufgeschrieben. Die Kasse dankt trotzdem.</p>
-			</div>
-		</div>
-	</div>
+	<button v-if="canWrite" class="fab" aria-label="Strafe aufschreiben" @click="openAssign"><Plus :size="24" /></button>
 
+	<!-- Aufschreiben -->
 	<AppModal v-if="showAssign" title="Strafe aufschreiben" @close="showAssign = false">
 		<form @submit.prevent="submitAssign">
 			<p v-if="error" class="form-error" role="alert">{{ error }}</p>
-
 			<div class="field">
 				<label>Spieler ({{ assignPlayers.length }})
-					<button type="button" class="btn sm" style="margin-left: 8px" @click="toggleAll">
+					<button type="button" class="btn sm ghost" style="margin-left: 8px; min-height: 28px; padding: 3px 10px" @click="toggleAll">
 						{{ assignPlayers.length === players.length ? 'Keinen' : 'Alle' }}
 					</button>
 				</label>
@@ -288,20 +303,18 @@ onMounted(load);
 					</label>
 				</div>
 			</div>
-
 			<div class="field">
 				<label>Vergehen ({{ assignPenalties.length }})</label>
 				<div class="pick-list">
 					<label v-for="c in catalog" :key="c.id" class="pick-item">
 						<input v-model="assignPenalties" type="checkbox" :value="c.id" />
-						<span>{{ c.label }} <em class="num" style="color: var(--gold); font-style: normal">{{ euro(c.amount) }}</em></span>
+						<span>{{ c.label }} <em class="mono" style="color: var(--gold); font-style: normal">{{ euro(c.amount) }}</em></span>
 					</label>
 				</div>
 			</div>
-
-			<div class="grid cols-2">
+			<div class="row2">
 				<div class="field">
-					<label for="as-free">Freie Strafe (optional)</label>
+					<label for="as-free">Freie Strafe</label>
 					<input id="as-free" v-model="freeLabel" maxlength="120" placeholder="z.B. Bierkasten" />
 				</div>
 				<div class="field">
@@ -309,84 +322,76 @@ onMounted(load);
 					<input id="as-free-amount" v-model="freeAmount" inputmode="decimal" placeholder="5,00" />
 				</div>
 			</div>
-
-			<button class="btn primary" style="width: 100%; justify-content: center" :disabled="!assignPlayers.length">
-				Aufschreiben
-			</button>
+			<button class="btn primary block" :disabled="!assignPlayers.length">Aufschreiben</button>
 		</form>
 	</AppModal>
 
-	<AppModal v-if="showCatalogForm" :title="editCatalogId ? 'Katalog-Eintrag bearbeiten' : 'Neuer Katalog-Eintrag'" @close="showCatalogForm = false">
+	<!-- Katalog-Eintrag -->
+	<AppModal v-if="showCatalogForm" :title="editCatalogId ? 'Eintrag bearbeiten' : 'Neuer Eintrag'" @close="showCatalogForm = false">
 		<form @submit.prevent="submitCatalog">
 			<p v-if="error" class="form-error" role="alert">{{ error }}</p>
 			<div class="field">
 				<label for="cat-label">Bezeichnung</label>
 				<input id="cat-label" v-model="catalogForm.label" required maxlength="120" />
 			</div>
-			<div class="grid cols-2">
+			<div class="row2">
 				<div class="field">
 					<label for="cat-amount">Betrag (€)</label>
 					<input id="cat-amount" v-model="catalogForm.amountEuro" inputmode="decimal" placeholder="5,00" required />
 				</div>
 				<div class="field">
-					<label for="cat-unit">Einheit (optional)</label>
+					<label for="cat-unit">Einheit</label>
 					<input id="cat-unit" v-model="catalogForm.unit" maxlength="40" placeholder="pro Minute" />
 				</div>
 			</div>
-			<button class="btn primary" style="width: 100%; justify-content: center">Speichern</button>
+			<button class="btn primary block">Speichern</button>
 		</form>
 	</AppModal>
 </template>
 
 <style scoped>
+.iban-card {
+	margin-top: 14px;
+	padding: 12px 15px;
+	background: var(--surface-2);
+	border: 1px solid var(--line);
+	border-radius: 14px;
+}
+.iban-card .k { font-family: var(--font-display); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-3); }
+.iban-card .iban { font-size: 15px; margin-top: 3px; }
+.iban-card .inh { font-size: 12.5px; color: var(--ink-2); }
+
 .bulk-bar {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: 7px;
 	flex-wrap: wrap;
-	padding: 10px 14px;
-	margin-bottom: 16px;
+	padding: 10px 12px;
+	margin-bottom: 14px;
 	background: var(--gold-bg);
-	border: 1px solid var(--hair-strong);
-	border-radius: var(--radius);
+	border: 1px solid var(--line-2);
+	border-radius: 13px;
+	position: sticky;
+	top: calc(var(--appbar-h) + var(--safe-top));
+	z-index: 20;
 }
-.kasse-player { padding: 10px 14px; border-bottom: 1px solid var(--hair); }
-.kasse-player:last-child { border-bottom: none; }
-.kasse-head { display: flex; align-items: center; gap: 10px; }
+
+.kasse-head { display: flex; align-items: center; gap: 10px; padding: 12px 15px; border-bottom: 1px solid var(--line); }
+.kasse-head strong { font-size: 16px; }
 .kasse-sum { margin-left: auto; font-weight: 600; }
-.tally { display: inline-flex; gap: 3px; align-items: flex-end; height: 14px; }
-.stroke { width: 2px; height: 13px; background: var(--kreide-70); border-radius: 1px; display: inline-block; }
+.tally { display: inline-flex; gap: 3px; align-items: flex-end; height: 15px; }
+.stroke { width: 2px; height: 14px; background: var(--ink-2); border-radius: 1px; display: inline-block; }
 .stroke.five { transform: rotate(-58deg) translateY(-2px); margin-left: -14px; }
-.kasse-item {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	font-size: 13px;
-	padding: 5px 0 5px 12px;
-	color: var(--kreide-70);
-}
-.kasse-item .num { margin-left: auto; }
-.kasse-item.paid { opacity: 0.45; }
-.kasse-item.paid > span { text-decoration: line-through; }
-.kasse-check { accent-color: var(--gold); width: 16px; height: 16px; flex-shrink: 0; }
-.pick-list {
-	max-height: 180px;
-	overflow-y: auto;
-	border: 1px solid var(--hair-strong);
-	border-radius: 4px;
-	background: var(--rasen-950);
-	padding: 4px;
-}
-.pick-item {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	padding: 7px 8px;
-	font-size: 13.5px;
-	border-radius: 3px;
-	cursor: pointer;
-}
-.pick-item:hover { background: rgba(240, 168, 28, 0.08); }
-.pick-item input { accent-color: var(--gold); width: 16px; height: 16px; }
+
+.kasse-item { display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 10px 15px; color: var(--ink-2); border-bottom: 1px solid var(--line); }
+.kasse-item:last-child { border-bottom: none; }
+.kasse-item.paid { opacity: 0.5; }
+.kasse-item.paid .grow { text-decoration: line-through; }
+.kasse-check { accent-color: var(--gold); width: 20px; height: 20px; flex-shrink: 0; }
+
+.pick-list { max-height: 210px; overflow-y: auto; border: 1px solid var(--line-2); border-radius: 11px; background: var(--bg); padding: 4px; }
+.pick-item { display: flex; align-items: center; gap: 10px; padding: 10px 10px; font-size: 15px; border-radius: 9px; cursor: pointer; }
+.pick-item:hover { background: var(--gold-bg); }
+.pick-item input { accent-color: var(--gold); width: 20px; height: 20px; flex-shrink: 0; }
 .pick-item span { display: flex; justify-content: space-between; width: 100%; gap: 8px; }
 </style>

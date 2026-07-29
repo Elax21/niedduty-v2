@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"github.com/alessandro/niedduty/internal/middleware"
 	"github.com/alessandro/niedduty/internal/models"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -55,14 +56,34 @@ func (a *API) DeletePenalty(c *gin.Context) {
 
 // ── Zugewiesene Strafen (Mannschaftskasse) ──────────────────────
 
+// ListPlayerPenalties — Aufschreiber/Admin sehen alle; normale Spieler nur
+// ihre eigenen (Privatsphäre: fremde Beträge sind serverseitig ausgeblendet).
 func (a *API) ListPlayerPenalties(c *gin.Context) {
-	var list []models.PlayerPenalty
+	user := middleware.CurrentUser(c)
 	q := a.db.Order("created_at desc")
-	if pid := c.Query("playerId"); pid != "" {
-		q = q.Where("player_id = ?", pid)
+	if user.Can(models.PermStrafen) {
+		if pid := c.Query("playerId"); pid != "" {
+			q = q.Where("player_id = ?", pid)
+		}
+	} else {
+		if user.PlayerID == nil {
+			c.JSON(http.StatusOK, []models.PlayerPenalty{})
+			return
+		}
+		q = q.Where("player_id = ?", *user.PlayerID)
 	}
+	var list []models.PlayerPenalty
 	q.Find(&list)
 	c.JSON(http.StatusOK, list)
+}
+
+// PenaltiesSummary — sichere Team-Aggregatsummen (offen/bezahlt), ohne
+// Aufschlüsselung pro Spieler. Für alle eingeloggten Nutzer sichtbar.
+func (a *API) PenaltiesSummary(c *gin.Context) {
+	var open, paid int64
+	a.db.Model(&models.PlayerPenalty{}).Where("paid = ?", false).Select("COALESCE(SUM(amount),0)").Scan(&open)
+	a.db.Model(&models.PlayerPenalty{}).Where("paid = ?", true).Select("COALESCE(SUM(amount),0)").Scan(&paid)
+	c.JSON(http.StatusOK, gin.H{"totalOpen": open, "totalPaid": paid})
 }
 
 // assignReq — Mehrfach-Zuweisung: jeder gewählte Spieler bekommt jedes

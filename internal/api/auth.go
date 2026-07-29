@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/alessandro/niedduty/internal/middleware"
@@ -14,41 +15,48 @@ import (
 
 const sessionTTL = 30 * 24 * time.Hour
 
+// startSession legt eine Session an und setzt das Cookie.
+func (a *API) startSession(c *gin.Context, user models.User) bool {
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Token-Erzeugung fehlgeschlagen"})
+		return false
+	}
+	token := hex.EncodeToString(buf)
+	sess := models.Session{Token: token, UserID: user.ID, ExpiresAt: time.Now().Add(sessionTTL)}
+	if err := a.db.Create(&sess).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Sitzung konnte nicht angelegt werden"})
+		return false
+	}
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie(middleware.SessionCookie, token, int(sessionTTL.Seconds()), "/", "", false, true)
+	return true
+}
+
 type loginReq struct {
-	Email    string `json:"email" binding:"required,email"`
+	Login    string `json:"login" binding:"required"` // Alias oder E-Mail
 	Password string `json:"password" binding:"required"`
 }
 
 func (a *API) Login(c *gin.Context) {
 	var req loginReq
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "E-Mail und Passwort angeben"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Alias und Passwort angeben"})
 		return
 	}
+	id := strings.TrimSpace(req.Login)
 	var user models.User
-	if err := a.db.First(&user, "lower(email) = lower(?)", req.Email).Error; err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "E-Mail oder Passwort falsch"})
+	if err := a.db.First(&user, "lower(alias) = lower(?) OR lower(email) = lower(?)", id, id).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Alias oder Passwort falsch"})
 		return
 	}
 	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)) != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "E-Mail oder Passwort falsch"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Alias oder Passwort falsch"})
 		return
 	}
-
-	buf := make([]byte, 32)
-	if _, err := rand.Read(buf); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Token-Erzeugung fehlgeschlagen"})
-		return
+	if a.startSession(c, user) {
+		c.JSON(http.StatusOK, user)
 	}
-	token := hex.EncodeToString(buf)
-	sess := models.Session{Token: token, UserID: user.ID, ExpiresAt: time.Now().Add(sessionTTL)}
-	if err := a.db.Create(&sess).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Sitzung konnte nicht angelegt werden"})
-		return
-	}
-	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(middleware.SessionCookie, token, int(sessionTTL.Seconds()), "/", "", false, true)
-	c.JSON(http.StatusOK, user)
 }
 
 func (a *API) Logout(c *gin.Context) {

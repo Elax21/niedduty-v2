@@ -1,5 +1,7 @@
 # Niedduty v2 – CLAUDE.md
 
+> **Aktueller Arbeitsstand & Erkenntnisse (fussball.de-Decode, Setup, TODO): siehe [HANDOFF.md](HANDOFF.md).**
+
 > Vereins-Schaltzentrale **nur für ASG Aramäer Ahlen** (kein Multi-Tenant).
 > Fokus: Ligatabelle · Kalender · Trainingsbeteiligung · Strafenkatalog/Kasse.
 > Bewusst gecuttet: Aufstellung, Taktik, Übungskatalog, Fan-Feature, News.
@@ -44,13 +46,18 @@ internal/store/               # Open+AutoMigrate, seed.go (Demo-Daten wenn DB le
 internal/middleware/auth.go   # Session-Cookie (ndt_session), RequireAdmin, RequirePerm
 internal/api/                 # Ein File pro Ressource, api.go = Routen
 frontend/src/
-├── views/                    # Login, Dashboard, Tabelle, Kalender, Training, Strafen, Kader, Einstellungen
-├── components/               # ScoreBoard (Anzeigetafel), AppModal
+├── App.vue                   # Mobile-Shell: sticky Top-Bar (Logo + Menü) + Bottom-Tabbar
+├── views/                    # Login, Dashboard(Start), Liga, Termine, Strafen, Kader, Einstellungen(=Verwaltung)
+├── components/               # ScoreBoard (Anzeigetafel-Kachel), AppModal (Bottom-Sheet)
 ├── stores/auth.ts            # user, club, can(perm)
 ├── services/api.ts           # axios /api
 ├── lib/motion.ts             # enterRows, countUp, growBars (respektiert reduced-motion)
-└── styles/main.css           # KOMPLETTES Design-System (Tokens + Klassen)
+└── styles/main.css           # KOMPLETTES Design-System „Matchday" (Tokens + Klassen)
 ```
+
+Routen/Tabs: `/`=Start · `/liga` · `/termine` · `/strafen`; Admin über Menü: `/kader`, `/verwaltung`.
+Alte Pfade (`/tabelle`,`/kalender`,`/einstellungen`,`/training`) leiten weiter. **Nur mobil** — auf breiten
+Screens zentrierte Handy-Spalte (max 480px), keine Desktop-Sidebar mehr.
 
 ## Rollen & Rechte
 
@@ -67,7 +74,9 @@ frontend/src/
 - **Termine**: `events.date` als `YYYY-MM-DD`-Text; Wiederholung weekly/biweekly. API expandiert zu Occurrences; `eventKey` = `ID` bzw. `ID_YYYY-MM-DD`. Attendance hängt am `eventKey`.
 - **Beteiligung**: `GET /api/attendance/stats?from&to` zählt nur Trainings-Vorkommen bis heute.
 - **Strafen**: Beträge in **Cent**; beim Zuweisen wird Label+Betrag kopiert (Katalog-Änderungen verfälschen alte Strafen nicht).
-- **Tabelle**: manuell (`PUT /api/table` ersetzt komplett) **oder** fussball.de-Widget (`club.fussballDeWidget`, muss mit `https://www.fussball.de/` beginnen → iframe in TabelleView).
+- **Liga/fussball.de**: drei Widget-URLs am Club — `fussballDeWidget` (Tabelle), `fussballDeUpcoming` (kommende Spiele), `fussballDeResults` (Ergebnisse), alle mit Prefix `https://www.fussball.de/`. LigaView bettet sie per iframe ein (Segmented-Control). Tabelle zusätzlich manuell pflegbar (`PUT /api/table` ersetzt komplett) als Fallback.
+- **Google-Kalender**: optionaler `club.googleCalendarUrl` (Prefix `https://calendar.google.com/`) → Button in Termine; zusätzlich pro Termin ein „Zu Google Kalender"-Deep-Link.
+- **Trainingsbeteiligung**: aktuell **ohne UI** (Recht `beteiligung` + `/api/attendance/stats` existieren serverseitig weiter, sind aber nicht verlinkt).
 
 ## Design-System „Flutlicht in Vereinsfarben"
 

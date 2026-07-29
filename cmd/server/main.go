@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/alessandro/niedduty/internal/api"
 	"github.com/alessandro/niedduty/internal/config"
@@ -19,6 +20,9 @@ func main() {
 		log.Fatalf("db: %v", err)
 	}
 	store.Seed(db)
+
+	// Tabelle beim Start + alle 30 Min von fussball.de holen (kein Cron nötig).
+	api.StartTableSyncLoop(db, 30*time.Minute)
 
 	r := gin.Default()
 	api.New(db).Routes(r)

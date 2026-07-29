@@ -32,8 +32,21 @@ export const useAuthStore = defineStore('auth', () => {
 		}
 	}
 
-	async function login(email: string, password: string) {
-		const { data } = await api.post<User>('/auth/login', { email, password });
+	async function login(login: string, password: string) {
+		const { data } = await api.post<User>('/auth/login', { login, password });
+		user.value = data;
+		const res = await api.get<Club>('/club');
+		club.value = res.data;
+	}
+
+	async function register(payload: {
+		token: string;
+		firstName: string;
+		lastName: string;
+		alias: string;
+		password: string;
+	}) {
+		const { data } = await api.post<User>('/auth/register', payload);
 		user.value = data;
 		const res = await api.get<Club>('/club');
 		club.value = res.data;
@@ -44,5 +57,5 @@ export const useAuthStore = defineStore('auth', () => {
 		user.value = null;
 	}
 
-	return { user, club, loaded, isAdmin, can, fetchMe, login, logout };
+	return { user, club, loaded, isAdmin, can, fetchMe, login, register, logout };
 });
