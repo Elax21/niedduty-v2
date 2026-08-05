@@ -1,0 +1,39 @@
+# Produktions-Setup: App + Datenbank. TLS macht ein Reverse-Proxy davor
+# (Caddy/nginx/Traefik) — die App selbst spricht http auf 8080.
+services:
+  db:
+    image: docker.io/library/postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: niedduty2
+      POSTGRES_USER: niedduty
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD setzen}
+      TZ: Europe/Berlin
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U niedduty -d niedduty2']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://niedduty:${POSTGRES_PASSWORD}@db:5432/niedduty2?sslmode=disable
+      PRODUCTION: 'true'
+      COOKIE_SECURE: 'true'
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.16.0.0/12}
+      # Optional: eigene VAPID-Schlüssel vorgeben. Ohne Angabe erzeugt der
+      # Server sie beim ersten Start und legt sie in der Datenbank ab.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+    ports:
+      - '127.0.0.1:8080:8080'
+
+volumes:
+  db-data:

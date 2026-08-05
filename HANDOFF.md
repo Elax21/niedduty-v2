@@ -56,10 +56,59 @@ Die neuen fussball.de-Widgets (next.fussball.de) sind **iframe-Embeds mit Domain
 
 Verifiziert (Saison 2026/27 startet erst, daher 0 Punkte): Tabellensync = 16 echte Kreisliga-A-Beckum-Teams (Aramäer = `isOwn`); Spiele = letztes 11:4 + 5 kommende Termine.
 
+## 4b. fussball.de klassisch (Kaderstatistik + Gegner) — Stand 01.08.2026
+
+Die Widgets liefern nur Tabelle und eigene Spiele. Alles andere holen wir von den **klassischen**
+Seiten (`internal/fussball/classic.go`) — die funktionieren mit **jeder** `team-id`:
+
+| Zweck | URL |
+|---|---|
+| Kaderstatistik | `https://www.fussball.de/ajax.team.squad/-/mode/PAGE/order-by/1/saison/<2526>/show-filter/true/team-id/<id>` |
+| Spielplan (gespielt) | `https://www.fussball.de/ajax.team.prev.games/-/mode/PAGE/show-token/false/team-id/<id>` |
+| Spielplan (angesetzt) | `.../ajax.team.next.games/...` |
+
+- Spalten der Kadertabelle: **Spieler · Einsätze · Einsatzminuten · Tore**. Nur die **Namen** sind
+  verschleiert (`data-obfuscation="<key>"` am Element → gleiche Font-Mechanik wie bei den Widgets),
+  die Zahlen kommen im Klartext. Bei den Spielplänen ist es umgekehrt: Namen im Klartext, **Ergebnisse**
+  verschleiert. Deshalb dekodiert `keyedDecoder` schlüsselbezogen pro Teilbaum.
+- Unsere Mannschafts-ID: `011MIC2EF8000000VTVG0001VTR8C1K7`. Sie steht **unverschleiert** in den
+  Widget-Daten (`nextMatches[].homeTeam.teamPermanentId`) und wird beim ersten Spiele-Abruf automatisch
+  als `club.fussballTeamId` gespeichert — dieselbe Quelle liefert auch die ID des **Gegners**.
+- Saisonkennung: `CurrentSeason(t)` → "2627"; Wechsel am 1. Juli.
+- Verifiziert am 01.08.2026: Kaderstatistik 25/26 mit 31 Spielern (Dülek 30 Sp./2700 Min., Sodic 27 Tore),
+  Gegner-Form von Ahlener SG II über deren Spielplan.
+
+## 4c. Push (Web-Push, ohne Fremddienst)
+
+- VAPID-Paar wird beim ersten Start erzeugt und in `settings` abgelegt (überlebt Neustarts — sonst
+  werden alle Abos ungültig). Vorgeben per `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`.
+- Erinnerungs-Loop alle 5 Min in `internal/api/push.go`; `push_reminders` (eventKey + kind) verhindert Doppler.
+- **Testen geht nur auf einem echten Gerät.** Auf dem iPhone erst über „Teilen → Zum Home-Bildschirm"
+  installieren, sonst gibt Safari keine Push-Erlaubnis. Schalter: Menü → „Benachrichtigungen".
+
+## 4d. Hosting
+
+Ein Artefakt: `npm run build` schreibt nach `internal/web/dist`, `go build` bettet es ein, der Server
+liefert SPA + API auf einem Port (`internal/web/web.go`, History-Routing inklusive).
+
+```bash
+POSTGRES_PASSWORD=… podman compose up -d --build   # App + PostgreSQL
+```
+
+Davor gehört ein Reverse-Proxy mit TLS (Caddy/nginx) — die App spricht http auf 8080 und ist in der
+compose-Datei nur an `127.0.0.1` gebunden. Env: `PRODUCTION=true` (gin Release + `DATABASE_URL` Pflicht),
+`COOKIE_SECURE=true`, `TRUSTED_PROXIES`.
+
+**Vor dem ersten echten Deploy noch zu tun:** das Fallback-Passwort in `internal/config/config.go`
+(`postgres://root:…`) steht im Repo — für Produktion zwingend `DATABASE_URL` setzen (macht `PRODUCTION=true`
+auch verpflichtend) und das Admin-Passwort `demo1234!` aus dem Seed ändern.
+
 ## 5. Offen / Ideen
 
-- Frontend der nativen Tabelle/Spiele im echten Browser final gegenchecken (Backend + Endpoints sind per curl verifiziert).
+- Push auf dem eigenen Handy durchtesten (Einschalten → Probenachricht → echte Erinnerung vor dem Training).
 - Optional: `fussballNextMatchId`-Feld/`next-match`-Widget entfernen (ungenutzt), da team-matches „next" mitliefert.
+- Optional: Kaderstatistik mit den eigenen Kader-Einträgen verknüpfen (Namensabgleich), damit Strafen,
+  Beteiligung und Einsatzminuten auf einer Spielerkarte zusammenlaufen.
 - Optional: fussball.de-Widget-Farben (Erweiterte Einstellungen) — für den Fall, dass man doch iframes nutzen will; Speichern erfordert fussball.de-Login.
 - Deploy: In Produktion auf `niedduty.com` würden auch die originalen fussball.de-iframes rendern — aktuell aber bewusst durch native Darstellung ersetzt.
 

@@ -3,3 +3,9 @@ frontend/dist/
 *.log
 .env
 frontend/tsconfig.tsbuildinfo
+
+# Produktions-Build des Frontends (wird ins Binary eingebettet, siehe
+# internal/web/web.go). Das Verzeichnis muss existieren, damit go:embed
+# baut — deshalb bleibt .gitkeep versioniert.
+internal/web/dist/*
+!internal/web/dist/.gitkeep
