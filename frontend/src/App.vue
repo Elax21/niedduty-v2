@@ -11,7 +11,7 @@ import TourSheet from './components/TourSheet.vue';
 import {
 	Home, Trophy, CalendarDays, Wallet,
 	Users, Settings, LogOut, MoreVertical, X,
-	Instagram, Bell, BellOff, BarChart3, Smartphone, RefreshCw, SlidersHorizontal, HelpCircle
+	Instagram, Bell, BellOff, BarChart3, Smartphone, RefreshCw, SlidersHorizontal, HelpCircle, Vote
 } from 'lucide-vue-next';
 
 const route = useRoute();
@@ -166,7 +166,7 @@ function go(to: string) {
 						</button>
 						<p v-if="pushMsg" class="push-hint">{{ pushMsg }}</p>
 
-						<button v-if="canPush" class="menu-link" @click="openPushSettings">
+						<button class="menu-link" @click="openPushSettings">
 							<SlidersHorizontal :size="19" /> <span>Erinnerungen einstellen</span>
 						</button>
 
@@ -174,6 +174,9 @@ function go(to: string) {
 							<Smartphone :size="19" /> <span>Auf den Startbildschirm</span>
 						</button>
 
+						<button class="menu-link" @click="go('/abstimmungen')">
+							<Vote :size="19" /> <span>Abstimmungen</span>
+						</button>
 						<button v-if="auth.can('beteiligung')" class="menu-link" @click="go('/beteiligung')">
 							<BarChart3 :size="19" /> <span>Trainingsbeteiligung</span>
 						</button>

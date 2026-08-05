@@ -6,7 +6,8 @@ import { useAuthStore } from '../stores/auth';
 import { enterRows, countUp } from '../lib/motion';
 import { MapPin, Clock, ChevronRight, CalendarDays, Check, X } from 'lucide-vue-next';
 import OpponentCard from '../components/OpponentCard.vue';
-import type { LeagueEntry, Occurrence, Scouting } from '../types';
+import PollCard from '../components/PollCard.vue';
+import type { LeagueEntry, Occurrence, Scouting, Poll } from '../types';
 
 const auth = useAuthStore();
 
@@ -16,6 +17,12 @@ const openSum = ref(0);
 const openShown = ref(0);
 const pointsShown = ref(0);
 const scouting = ref<Scouting | null>(null);
+const polls = ref<Poll[]>([]);
+
+/** Karte meldet ihr neues Ergebnis zurück. */
+function onPollChanged(p: Poll) {
+	polls.value = p.id ? polls.value.map((x) => (x.id === p.id ? p : x)) : polls.value.filter((x) => x.id);
+}
 const rsvpBusy = ref(false);
 
 const today = new Date().toISOString().slice(0, 10);
@@ -99,6 +106,11 @@ async function loadAll() {
 	countUp(ownEntry.value?.points ?? 0, (v) => (pointsShown.value = v));
 	requestAnimationFrame(() => enterRows('.dash-anim'));
 
+	// Laufende Abstimmungen — kurz, damit sie oben auffallen.
+	api.get<Poll[]>('/polls/running')
+		.then((r) => { polls.value = r.data; })
+		.catch(() => {});
+
 	// Gegner-Steckbrief nachladen — darf ruhig ein paar Hundert ms brauchen.
 	api.get<Scouting>('/fussball/scouting')
 		.then((r) => { scouting.value = r.data; })
@@ -172,6 +184,16 @@ useRefresh(loadAll);
 			<div class="l">Offen</div>
 		</div>
 	</div>
+
+	<!-- Laufende Abstimmungen — oben, damit niemand sie verpasst -->
+	<PollCard
+		v-for="p in polls"
+		:key="p.id"
+		:poll="p"
+		class="dash-anim"
+		style="margin-top: 14px"
+		@changed="onPollChanged"
+	/>
 
 	<!-- Gegner-Steckbrief zum nächsten Pflichtspiel -->
 	<OpponentCard v-if="scouting?.match" :scouting="scouting" class="dash-anim" style="margin-top: 14px" />

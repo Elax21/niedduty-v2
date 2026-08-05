@@ -19,6 +19,7 @@ const (
 	PermStrafen     = "strafen"     // Strafen aufschreiben (Katalog + Zuweisung)
 	PermTermine     = "termine"     // Termine anlegen/ändern/löschen
 	PermBeteiligung = "beteiligung" // Trainingsbeteiligung aller ansehen
+	PermUmfragen    = "umfragen"    // Abstimmungen starten und beenden
 )
 
 // User — Login-Konto. Login primär über Alias; E-Mail optional (nur Admin/Kontakt).
@@ -192,6 +193,34 @@ const (
 	PenaltyActionCatalog  = "katalog_geaendert"
 	PenaltyActionCatalogX = "katalog_geloescht"
 )
+
+// Poll — Abstimmung für die Mannschaft. Läuft bis EndsAt und erscheint bis
+// dahin auf der Startseite.
+type Poll struct {
+	ID       uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	Question string    `gorm:"not null" json:"question"`
+	// Options als JSON-Liste. Der Index ist der Schlüssel der Stimme —
+	// deshalb dürfen Optionen nach dem Start nicht mehr umsortiert werden.
+	Options []string `gorm:"serializer:json;type:jsonb;not null;default:'[]'" json:"options"`
+	// MultiChoice erlaubt mehrere Kreuze je Person.
+	MultiChoice bool `gorm:"not null;default:false" json:"multiChoice"`
+	// EndsAt — danach zählt keine Stimme mehr. Leer = läuft bis zum Schließen.
+	EndsAt      *time.Time `json:"endsAt"`
+	ClosedAt    *time.Time `json:"closedAt"`
+	CreatedBy   uuid.UUID  `gorm:"type:uuid" json:"createdBy"`
+	CreatorName string     `json:"creatorName"`
+	CreatedAt   time.Time  `json:"createdAt"`
+}
+
+// PollVote — eine Stimme. Bei Einfachauswahl genau eine Zeile je Konto,
+// bei Mehrfachauswahl eine je angekreuzter Option.
+type PollVote struct {
+	PollID    uuid.UUID `gorm:"type:uuid;primaryKey" json:"pollId"`
+	UserID    uuid.UUID `gorm:"type:uuid;primaryKey" json:"userId"`
+	OptionIdx int       `gorm:"primaryKey" json:"optionIdx"`
+	VoterName string    `json:"voterName"`
+	CreatedAt time.Time `json:"createdAt"`
+}
 
 // EventNote — Notiz an einem einzelnen Vorkommen (z. B. „heute Torwarttraining").
 // Hängt am EventKey, gilt also nur für diesen einen Termin der Serie.

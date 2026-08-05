@@ -45,7 +45,7 @@ export const helpChapters: HelpChapter[] = [
 			'Zusage oder Absage mit einem Tipp — die Zähler daneben zeigen den Stand.',
 			'Bei Spielen stehen Treffpunkt (1:30 vor Anpfiff), Platz und Navi-Knöpfe für Google und Apple Karten.',
 			'Der Reiter „Kalender" zeigt den ganzen Monat, du kannst beliebig weit vorspulen.',
-			'Über das Kalender-Symbol legst du jeden Termin in deinen Google-Kalender.'
+			'Tippen auf einen Termin öffnet die Details: Anfahrt, Notiz, Bearbeiten und Löschen.'
 		]
 	},
 	{
@@ -60,6 +60,17 @@ export const helpChapters: HelpChapter[] = [
 			'Abgewählte Wochentage werden samt Rückmeldungen entfernt.'
 		],
 		perm: 'termine'
+	},
+	{
+		key: 'abstimmungen',
+		icon: 'Vote',
+		title: 'Abstimmungen',
+		lead: 'Fragen an die Mannschaft — laufende stehen auch auf der Startseite.',
+		points: [
+			'Antippen genügt; die eigene Stimme lässt sich bis zum Ende ändern.',
+			'Das Ergebnis siehst du, sobald du selbst abgestimmt hast.',
+			'Starten darf der Mannschaftsrat (Recht „Abstimmungen starten"). Alle bekommen sofort eine Benachrichtigung, 24 Stunden vor Ablauf gibt es eine Erinnerung für alle, die noch fehlen.'
+		]
 	},
 	{
 		key: 'kasse',
@@ -127,8 +138,8 @@ export const helpChapters: HelpChapter[] = [
 		lead: 'Konten, Rechte und die Einbettungen von fussball.de.',
 		points: [
 			'Einladungslink erzeugen und teilen — jeder registriert sich selbst und bekommt einen Kader-Eintrag.',
-			'Rechte vergeben: Strafen aufschreiben, Termine verwalten, Beteiligung sehen.',
-			'IBAN, Instagram, Google-Kalender und die fussball.de-IDs stehen ebenfalls hier.'
+			'Rechte vergeben: Strafen aufschreiben, Termine verwalten, Beteiligung sehen, Abstimmungen starten.',
+			'IBAN, Instagram und die fussball.de-IDs stehen ebenfalls hier.'
 		],
 		perm: 'admin'
 	}

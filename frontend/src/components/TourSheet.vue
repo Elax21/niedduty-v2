@@ -5,7 +5,7 @@
 import { ref, computed } from 'vue';
 import {
 	Home, Trophy, CalendarDays, Wallet, Users, Settings, Bell,
-	BarChart3, Repeat, ShieldCheck, ChevronLeft, ChevronRight, Check
+	BarChart3, Repeat, ShieldCheck, Vote, ChevronLeft, ChevronRight, Check
 } from 'lucide-vue-next';
 import { useAuthStore } from '../stores/auth';
 import { helpChapters } from '../lib/help';
@@ -17,7 +17,7 @@ const emit = defineEmits<{ close: [] }>();
 const auth = useAuthStore();
 
 const icons: Record<string, unknown> = {
-	Home, Trophy, CalendarDays, Wallet, Users, Settings, Bell, BarChart3, Repeat, ShieldCheck
+	Home, Trophy, CalendarDays, Wallet, Users, Settings, Bell, BarChart3, Repeat, ShieldCheck, Vote
 };
 
 /** Nur zeigen, was für dieses Konto überhaupt erreichbar ist. */

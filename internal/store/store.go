@@ -27,6 +27,8 @@ func Open(dsn string) (*gorm.DB, error) {
 		&models.Event{},
 		&models.EventAttendance{},
 		&models.EventNote{},
+		&models.Poll{},
+		&models.PollVote{},
 		&models.PenaltyLog{},
 		&models.Setting{},
 		&models.PushSubscription{},

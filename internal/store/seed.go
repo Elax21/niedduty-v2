@@ -36,17 +36,30 @@ func Seed(db *gorm.DB) {
 		PasswordHash: string(hash), Role: models.RoleAdmin, Permissions: []string{},
 	})
 
-	// Strafenkatalog — sinnvolle Startwerte (editierbar).
+	// Strafenkatalog der Saison 2025/26, wie im Aushang beschlossen (editierbar).
+	// Die Nummerierung im Original springt von 7 auf 9 — hier fortlaufend.
 	catalog := []models.Penalty{
-		{Label: "Verspätung Training", Amount: 100, Unit: "pro Minute", SortOrder: 1},
-		{Label: "Unentschuldigtes Fehlen Training", Amount: 1000, SortOrder: 2},
-		{Label: "Verspätung Spieltag", Amount: 500, SortOrder: 3},
-		{Label: "Unentschuldigtes Fehlen Spiel", Amount: 2500, SortOrder: 4},
-		{Label: "Gelbe Karte (Meckern)", Amount: 1000, SortOrder: 5},
-		{Label: "Rote Karte (Unsportlichkeit)", Amount: 2500, SortOrder: 6},
-		{Label: "Handy in der Kabinenbesprechung", Amount: 500, SortOrder: 7},
-		{Label: "Falsches Trikot / Ausrüstung vergessen", Amount: 500, SortOrder: 8},
-		{Label: "Kiste Bier vergessen (Geburtstag)", Amount: 2000, SortOrder: 9},
+		{Label: "Unentschuldigtes Fehlen beim Spiel", Amount: 5000, SortOrder: 1},
+		{Label: "Unentschuldigtes Fehlen beim Training", Amount: 2500,
+			Unit: "Abmeldung bis 16 Uhr beim Trainerteam, nicht in der Gruppe", SortOrder: 2},
+		{Label: "Verspätet zum Training", Amount: 50,
+			Unit: "pro Minute · ohne Abmeldung, 19:15 Uhr auf dem Platz", SortOrder: 3},
+		{Label: "Verspätet zum Treffpunkt", Amount: 50,
+			Unit: "pro Minute · ohne Abmeldung, ab 5 Min nach Treffpunkt", SortOrder: 4},
+		{Label: "Gelbe Karte wegen Meckern oder Beleidigung", Amount: 1000, SortOrder: 5},
+		{Label: "Gelb-Rote Karte wegen Meckern oder Beleidigung", Amount: 2000, SortOrder: 6},
+		{Label: "Rote Karte wegen unsportlichem Verhalten", Amount: 4000, SortOrder: 7},
+		{Label: "Trainingsanzug zum Spiel nicht angezogen", Amount: 500, Unit: "wenn im Besitz", SortOrder: 8},
+		{Label: "Zum Aufwärmen Zipper oder T-Shirt nicht an", Amount: 500, Unit: "wenn im Besitz", SortOrder: 9},
+		{Label: "Rauchen oder Alkohol im Trikot", Amount: 500, SortOrder: 10},
+		{Label: "Gegenstände vergessen", Amount: 200,
+			Unit: "pro Stück · Fußballschuhe etc., Unterwäsche zählt nicht", SortOrder: 11},
+		{Label: "Handy klingelt oder Spielen während der Besprechung", Amount: 500, SortOrder: 12},
+		{Label: "Handynutzung während des Spiels", Amount: 1000, SortOrder: 13},
+		{Label: "Ball über den Zaun geschossen", Amount: 3000,
+			Unit: "alle Schützen zahlen, auch wenn der Ball unerreichbar ist", SortOrder: 14},
+		{Label: "Kabine unsauber verlassen", Amount: 500,
+			Unit: "je Spieler im Spielbericht", SortOrder: 15},
 	}
 	for i := range catalog {
 		db.Create(&catalog[i])

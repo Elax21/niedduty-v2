@@ -10,7 +10,7 @@ export const useAuthStore = defineStore('auth', () => {
 
 	const isAdmin = computed(() => user.value?.role === 'ADMIN');
 
-	function can(perm: 'strafen' | 'termine' | 'beteiligung'): boolean {
+	function can(perm: 'strafen' | 'termine' | 'beteiligung' | 'umfragen'): boolean {
 		if (!user.value) return false;
 		return user.value.role === 'ADMIN' || user.value.permissions.includes(perm);
 	}

@@ -47,6 +47,17 @@ func (a *API) Routes(r *gin.Engine) {
 		auth.GET("/events", a.ListEvents)
 		auth.GET("/training-schedule", a.GetTrainingSchedule)
 		auth.GET("/stats/overview", a.StatsOverview)
+		auth.GET("/polls", a.ListPolls)
+		auth.GET("/polls/running", a.ListRunningPolls)
+		auth.POST("/polls/:id/vote", a.Vote)
+
+		// Abstimmungs-Starter: Admin oder Recht "umfragen".
+		umfragen := auth.Group("", middleware.RequirePerm(models.PermUmfragen))
+		{
+			umfragen.POST("/polls", a.CreatePoll)
+			umfragen.POST("/polls/:id/close", a.ClosePoll)
+			umfragen.DELETE("/polls/:id", a.DeletePoll)
+		}
 		auth.GET("/fussball/matches", a.GetMatches)
 		auth.GET("/fussball/scouting", a.GetScouting)
 		auth.GET("/fussball/squad-stats", a.GetSquadStats)

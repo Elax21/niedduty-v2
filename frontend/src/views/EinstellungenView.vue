@@ -56,7 +56,8 @@ async function shareLink() {
 const permLabels: Record<string, string> = {
 	strafen: 'Strafen aufschreiben',
 	termine: 'Termine verwalten',
-	beteiligung: 'Trainingsbeteiligung sehen'
+	beteiligung: 'Trainingsbeteiligung sehen',
+	umfragen: 'Abstimmungen starten (Mannschaftsrat)'
 };
 
 async function load() {

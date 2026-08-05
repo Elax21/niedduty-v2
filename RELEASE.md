@@ -2,6 +2,10 @@
 
 ## 05.08.2026 — Live auf niedduty.de, Trainingsplan, Kalender, PWA-Hinweis
 
+- ✨ **Abstimmungen** (`models.Poll`, `/api/polls`, Seite `/abstimmungen`): Frage mit bis zu zehn Antworten, wahlweise Mehrfachauswahl und festem Ende. Laufende Abstimmungen stehen auch auf der Startseite. Das Ergebnis wird erst nach der eigenen Stimme sichtbar, damit die ersten Stimmen den Rest nicht ziehen; wer wie gestimmt hat, lässt sich aufklappen. Beim Start geht eine Benachrichtigung an alle, 24 Stunden vor Ablauf noch eine an alle, die fehlen. Starten darf, wer das neue Recht **`umfragen`** hat (Mannschaftsrat) — abstimmen darf jeder.
+- ✨ **Strafenkatalog 2025/26** aus dem Aushang übernommen (15 Einträge, von „Unentschuldigtes Fehlen beim Spiel" 50 € bis „Kabine unsauber verlassen" 5 €). Ersetzt den bisherigen Demo-Katalog, auch im Seed. Das Feld für den Zusatz (`unit`) fasst jetzt 120 statt 40 Zeichen — die Erläuterungen aus dem Aushang passten sonst nicht.
+- 🐛 **„Erinnerungen einstellen" war auf dem iPhone unsichtbar**: der Menüpunkt hing an `pushSupported()`, und `PushManager` gibt es in Safari erst, wenn die App auf dem Startbildschirm liegt. Die Vorlaufzeiten hängen aber am Konto, nicht am Gerät — der Eintrag ist jetzt immer da, mit Hinweis, falls das Gerät noch nicht zustellen kann.
+
 - ⚙️ **Produktiv-Deploy** auf `https://niedduty.de` (LXC 213 „niedduty-v2" auf v20: Go-Binary als systemd-Dienst auf Port 8213, PostgreSQL im selben Container, nginx-Reverse-Proxy in CT 200, Let's-Encrypt-Zertifikat für `niedduty.de` + `www`).
 - ✨ **Trainingszeiten** (`GET/PUT /api/training-schedule`, Button in Termine): Wochentage antippen — je Tag läuft eine wöchentliche Serie mit gemeinsamer Zeit, Ort und Notiz. Abgewählte Tage fliegen samt Rückmeldungen raus. Serien tragen `events.series = "training"`.
 - ✨ **Notiz je Einheit** (`PUT /api/event-notes`, `models.EventNote`): Notiz an einem einzelnen Vorkommen (`eventKey`), unabhängig vom Rest der Serie — erscheint in Liste und Kalender.

@@ -295,3 +295,21 @@ export interface StatsOverview {
 	squadSize: number;
 	topPlayers: TopAttender[];
 }
+
+/** Abstimmung samt Zählung. */
+export interface Poll {
+	id: string;
+	question: string;
+	options: string[];
+	multiChoice: boolean;
+	endsAt: string | null;
+	closedAt: string | null;
+	createdBy: string;
+	creatorName: string;
+	createdAt: string;
+	counts: number[];
+	voters: string[][];
+	myVotes: number[];
+	total: number;
+	running: boolean;
+}

@@ -124,6 +124,7 @@ func StartReminderLoop(db *gorm.DB, every time.Duration) {
 		for {
 			runReminders(db, time.Now())
 			runBirthdays(db, time.Now())
+			runPollReminders(db, time.Now())
 			time.Sleep(every)
 		}
 	}()
@@ -310,6 +311,40 @@ func birthdayBody(p models.Player, now time.Time) string {
 		return fmt.Sprintf("hat heute Geburtstag — wird %d. Gratulieren nicht vergessen.", age)
 	}
 	return "hat heute Geburtstag. Gratulieren nicht vergessen."
+}
+
+// runPollReminders stupst alle an, die vor Ablauf einer Abstimmung noch nicht
+// abgestimmt haben — einmal je Abstimmung und Konto.
+func runPollReminders(db *gorm.DB, now time.Time) {
+	var polls []models.Poll
+	db.Where("closed_at IS NULL AND ends_at IS NOT NULL AND ends_at > ?", now).Find(&polls)
+
+	for _, p := range polls {
+		if p.EndsAt.Sub(now) > pollReminderLead {
+			continue
+		}
+		var votes []models.PollVote
+		db.Where("poll_id = ?", p.ID).Find(&votes)
+		voted := map[uuid.UUID]bool{}
+		for _, v := range votes {
+			voted[v.UserID] = true
+		}
+
+		var users []models.User
+		db.Find(&users)
+		key := "poll_" + p.ID.String()
+		for _, u := range users {
+			if voted[u.ID] || !claimDelivery(db, key, "abstimmung", u.ID) {
+				continue
+			}
+			push.SendToUsers(db, []uuid.UUID{u.ID}, push.Payload{
+				Title: "🗳 Abstimmung läuft ab",
+				Body:  p.Question + " — endet " + p.EndsAt.Format("02.01. um 15:04") + " Uhr.",
+				URL:   "/abstimmungen",
+				Tag:   key,
+			})
+		}
+	}
 }
 
 // openAnswers — Konten, von denen für dieses Vorkommen noch nichts kam.

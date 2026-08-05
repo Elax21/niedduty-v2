@@ -11,6 +11,7 @@ const router = createRouter({
 		{ path: '/termine', name: 'termine', component: () => import('../views/TermineView.vue') },
 		{ path: '/strafen', name: 'strafen', component: () => import('../views/StrafenView.vue') },
 		{ path: '/kader', name: 'kader', component: () => import('../views/KaderView.vue'), meta: { admin: true } },
+		{ path: '/abstimmungen', name: 'abstimmungen', component: () => import('../views/AbstimmungenView.vue') },
 		{ path: '/beteiligung', name: 'beteiligung', component: () => import('../views/BeteiligungView.vue'), meta: { perm: 'beteiligung' } },
 		{ path: '/verwaltung', name: 'verwaltung', component: () => import('../views/EinstellungenView.vue'), meta: { admin: true } },
 		// Alte Pfade umleiten
@@ -31,7 +32,7 @@ router.beforeEach(async (to) => {
 	if (!isPublic && !auth.user) return { name: 'login' };
 	if (to.name === 'login' && auth.user) return { name: 'dashboard' };
 	if (to.meta.admin && !auth.isAdmin) return { name: 'dashboard' };
-	if (to.meta.perm && !auth.can(to.meta.perm as 'strafen' | 'termine' | 'beteiligung')) return { name: 'dashboard' };
+	if (to.meta.perm && !auth.can(to.meta.perm as 'strafen' | 'termine' | 'beteiligung' | 'umfragen')) return { name: 'dashboard' };
 });
 
 export default router;

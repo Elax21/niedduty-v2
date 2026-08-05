@@ -3,6 +3,7 @@
 // Minuten, 0 = diese Erinnerung aus.
 import { ref, onMounted } from 'vue';
 import { api, apiError } from '../services/api';
+import { pushSupported } from '../lib/push';
 import AppModal from './AppModal.vue';
 import type { PushSettings } from '../types';
 
@@ -20,6 +21,9 @@ const meetBefore = ref(90);
 const busy = ref(false);
 const error = ref('');
 const saved = ref(false);
+// Auf dem iPhone gibt es Push erst, wenn die App auf dem Startbildschirm liegt.
+// Die Zeiten lassen sich trotzdem schon setzen — sie hängen am Konto.
+const canPush = pushSupported();
 
 /** Auswahl in Minuten — bewusst grob, damit es auf dem Handy schnell geht. */
 const kurzOptionen = [
@@ -75,6 +79,11 @@ onMounted(load);
 	<AppModal title="Benachrichtigungen" @close="emit('close')">
 		<form @submit.prevent="save">
 			<p v-if="error" class="form-error" role="alert">{{ error }}</p>
+			<p v-if="!canPush" class="hint" style="margin-bottom: 14px">
+				Dieses Gerät kann noch keine Benachrichtigungen zustellen. Auf dem iPhone geht das
+				erst, wenn die App über „Teilen → Zum Home-Bildschirm" installiert ist. Die Zeiten
+				kannst du trotzdem schon festlegen — sie gelten für dein Konto, nicht für das Gerät.
+			</p>
 
 			<div class="field">
 				<label for="ps-training">Vor dem Training erinnern</label>

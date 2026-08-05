@@ -15,6 +15,7 @@ var validPerms = map[string]bool{
 	models.PermStrafen:     true,
 	models.PermTermine:     true,
 	models.PermBeteiligung: true,
+	models.PermUmfragen:    true,
 }
 
 func checkPerms(perms []string) bool {

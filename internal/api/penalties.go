@@ -12,7 +12,7 @@ import (
 type penaltyReq struct {
 	Label     string `json:"label" binding:"required,max=120"`
 	Amount    int    `json:"amount" binding:"required,min=1,max=100000"` // Cent
-	Unit      string `json:"unit" binding:"max=40"`
+	Unit      string `json:"unit" binding:"max=120"`
 	SortOrder int    `json:"sortOrder"`
 }
 
