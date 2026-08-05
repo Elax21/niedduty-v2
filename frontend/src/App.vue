@@ -126,16 +126,6 @@ function go(to: string) {
 			>
 				<RefreshCw :size="18" />
 			</button>
-			<a
-				v-if="auth.club?.instagramUrl"
-				class="bar-btn gold-ic"
-				:href="auth.club.instagramUrl"
-				target="_blank"
-				rel="noopener"
-				aria-label="Instagram des Vereins"
-			>
-				<Instagram :size="19" />
-			</a>
 			<button class="bar-btn" aria-label="Menü" @click="menuOpen = true">
 				<MoreVertical :size="20" />
 			</button>

@@ -47,6 +47,8 @@ const apple = showAppleMaps();
 .line :deep(svg) { color: var(--gold); flex-shrink: 0; }
 .line b { color: var(--ink); }
 .dim { color: var(--ink-3); }
-.navi { display: flex; gap: 8px; flex-wrap: wrap; }
-.navi .btn { flex: 1; min-width: 128px; }
+/* auto-fit statt Flex-Wrap: nie schmaler als 132px, nie breiter als der
+   Container — ein einzelner Knopf (Android ohne Apple Karten) füllt die Zeile. */
+.navi { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 8px; }
+.navi .btn { min-width: 0; min-height: 40px; white-space: nowrap; }
 </style>

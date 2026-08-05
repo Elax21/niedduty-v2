@@ -18,6 +18,7 @@
 - ✨ **Erinnerungen selbst einstellen** (`GET/PUT /api/push/settings`, Menü → „Erinnerungen einstellen"): Vorlauf für Training, Spiel und Treffpunkt getrennt wählbar, jede Erinnerung einzeln abschaltbar, dazu die Rückmelde-Bitte und die Geburtstage. Der Erinnerungs-Loop rechnet jetzt **je Konto**; `push_deliveries` ersetzt `push_reminders` und nimmt das Konto in den Schlüssel auf.
 - ✨ **Diagramme in der Beteiligung** (`GET /api/stats/overview`): Beteiligungsquote je Monat, Einheiten je Monat (Training/Spiel getrennt), bester Wochentag und Strafen je Monat (offen/bezahlt). Alles aus PostgreSQL gerechnet, kein zweiter Datenbestand.
 - ✨ **Rundgang & Hilfe** (`lib/help.ts`, `components/TourSheet.vue`): nach dem ersten Login führt ein Rundgang einmalig durch alle Funktionen; derselbe Inhalt liegt dauerhaft als „Hilfe & Erklärung" im Menü. Kapitel, für die das Konto kein Recht hat, werden ausgeblendet.
+- 💄 Enge Stellen entzerrt: Zu-/Absage in der Terminliste jetzt breite Primärzeile mit den Werkzeugen darunter (bis zu fünf Icons plus Zähler passten nicht in eine Zeile) · Instagram nur noch im Menü statt doppelt in der Kopfleiste · Navi-Knöpfe brechen über `auto-fit` sauber auf eine Spalte.
 - 💄 Das Recht **`beteiligung`** ist jetzt auch in der Rechte-Liste der Verwaltung vergebbar (fehlte in der Oberfläche, obwohl es serverseitig längst geprüft wurde).
 
 ## 01.08.2026 — Redesign „Flutlicht v2", Gegner-Scouting, Push, Hosting

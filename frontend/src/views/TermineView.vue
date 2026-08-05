@@ -474,26 +474,28 @@ useRefresh(load);
 					/>
 
 					<div class="actions">
-						<template v-if="myPlayerId && it.isoDate >= today">
+						<div v-if="myPlayerId && it.isoDate >= today" class="row-main">
 							<button class="rsvp yes sm" :class="{ on: myStatus(it) === 'attending' }" :disabled="rsvpBusy === it.key" @click="rsvp(it, 'attending')">
 								<Check :size="14" /> Zusage
 							</button>
 							<button class="rsvp no sm" :class="{ on: myStatus(it) === 'declined' }" :disabled="rsvpBusy === it.key" @click="rsvp(it, 'declined')">
 								<X :size="14" /> Absage
 							</button>
-						</template>
-						<a v-if="it.isMatch && it.url" :href="it.url" target="_blank" rel="noopener" class="btn sm icon ghost" aria-label="Auf fussball.de öffnen"><ExternalLink :size="14" /></a>
-						<a :href="googleUrl(it)" target="_blank" rel="noopener" class="btn sm icon ghost" aria-label="Zu Google Kalender"><CalendarPlus :size="14" /></a>
-						<template v-if="canManage && !it.isMatch && it.occ">
-							<button class="btn sm icon ghost" aria-label="Notiz zu diesem Termin" @click="openNote(it)"><StickyNote :size="13" /></button>
-							<button class="btn sm icon ghost" aria-label="Bearbeiten" @click="openEdit(it.occ)"><Pencil :size="13" /></button>
-							<button class="btn sm icon danger" aria-label="Löschen" @click="removeEvent(it.occ)"><Trash2 :size="13" /></button>
-						</template>
-						<span class="tally">
-							<span class="count-yes">{{ counts(it).yes }}</span>
-							<span class="count-open"> / </span>
-							<span class="count-no">{{ counts(it).no }}</span>
-						</span>
+						</div>
+						<div class="row-tools">
+							<a v-if="it.isMatch && it.url" :href="it.url" target="_blank" rel="noopener" class="btn sm icon ghost" aria-label="Auf fussball.de öffnen"><ExternalLink :size="14" /></a>
+							<a :href="googleUrl(it)" target="_blank" rel="noopener" class="btn sm icon ghost" aria-label="Zu Google Kalender"><CalendarPlus :size="14" /></a>
+							<template v-if="canManage && !it.isMatch && it.occ">
+								<button class="btn sm icon ghost" aria-label="Notiz zu diesem Termin" @click="openNote(it)"><StickyNote :size="13" /></button>
+								<button class="btn sm icon ghost" aria-label="Bearbeiten" @click="openEdit(it.occ)"><Pencil :size="13" /></button>
+								<button class="btn sm icon danger" aria-label="Löschen" @click="removeEvent(it.occ)"><Trash2 :size="13" /></button>
+							</template>
+							<span class="tally">
+								<span class="count-yes">{{ counts(it).yes }}</span>
+								<span class="count-open"> / </span>
+								<span class="count-no">{{ counts(it).no }}</span>
+							</span>
+						</div>
 					</div>
 				</div>
 			</article>
