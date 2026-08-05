@@ -55,7 +55,8 @@ async function shareLink() {
 
 const permLabels: Record<string, string> = {
 	strafen: 'Strafen aufschreiben',
-	termine: 'Termine verwalten'
+	termine: 'Termine verwalten',
+	beteiligung: 'Trainingsbeteiligung sehen'
 };
 
 async function load() {
@@ -86,10 +87,10 @@ async function saveClub() {
 // ── Benutzer ──
 const showUserForm = ref(false);
 const userError = ref('');
-const userForm = ref({ alias: '', email: '', name: '', password: '', permissions: [] as string[], playerId: '' });
+const userForm = ref({ alias: '', email: '', name: '', password: '', permissions: [] as string[], playerId: '', noPlayer: false });
 
 function openUserCreate() {
-	userForm.value = { alias: '', email: '', name: '', password: '', permissions: [], playerId: '' };
+	userForm.value = { alias: '', email: '', name: '', password: '', permissions: [], playerId: '', noPlayer: false };
 	userError.value = '';
 	showUserForm.value = true;
 }
@@ -202,10 +203,19 @@ onMounted(() => { load(); loadInvite(); });
 						<input id="cl-w-next" v-model="clubForm.fussballNextMatchId" maxlength="64" placeholder="aab8a3a1-…" />
 					</div>
 
+					<div class="field">
+						<label for="cl-team">Mannschafts-ID fussball.de (wird automatisch erkannt)</label>
+						<input id="cl-team" v-model="clubForm.fussballTeamId" maxlength="64" placeholder="011MIC2EF8…" />
+					</div>
+
 					<div class="chalk-divider" />
 					<div class="field">
 						<label for="cl-gcal">Google Team-Kalender (optional)</label>
 						<input id="cl-gcal" v-model="clubForm.googleCalendarUrl" maxlength="400" placeholder="https://calendar.google.com/…" />
+					</div>
+					<div class="field">
+						<label for="cl-insta">Instagram (optional)</label>
+						<input id="cl-insta" v-model="clubForm.instagramUrl" maxlength="200" placeholder="https://www.instagram.com/…" />
 					</div>
 
 					<div class="chalk-divider" />
@@ -285,9 +295,13 @@ onMounted(() => { load(); loadInvite(); });
 			<div class="field">
 				<label for="us-player">Verknüpfter Spieler (für Zu-/Absagen)</label>
 				<select id="us-player" v-model="userForm.playerId">
-					<option value="">— keiner —</option>
+					<option value="">— neuen Kader-Eintrag anlegen —</option>
 					<option v-for="p in players" :key="p.id" :value="p.id">{{ p.name }}</option>
 				</select>
+				<label class="perm-check" style="margin-top: 8px">
+					<input v-model="userForm.noPlayer" type="checkbox" />
+					Kein Kader-Eintrag (Trainer, Betreuer)
+				</label>
 			</div>
 			<button class="btn primary block">Konto anlegen</button>
 		</form>

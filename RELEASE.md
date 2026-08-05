@@ -1,5 +1,39 @@
 # Release-Notes
 
+## 05.08.2026 — Live auf niedduty.de, Trainingsplan, Kalender, PWA-Hinweis
+
+- ⚙️ **Produktiv-Deploy** auf `https://niedduty.de` (LXC 213 „niedduty-v2" auf v20: Go-Binary als systemd-Dienst auf Port 8213, PostgreSQL im selben Container, nginx-Reverse-Proxy in CT 200, Let's-Encrypt-Zertifikat für `niedduty.de` + `www`).
+- ✨ **Trainingszeiten** (`GET/PUT /api/training-schedule`, Button in Termine): Wochentage antippen — je Tag läuft eine wöchentliche Serie mit gemeinsamer Zeit, Ort und Notiz. Abgewählte Tage fliegen samt Rückmeldungen raus. Serien tragen `events.series = "training"`.
+- ✨ **Notiz je Einheit** (`PUT /api/event-notes`, `models.EventNote`): Notiz an einem einzelnen Vorkommen (`eventKey`), unabhängig vom Rest der Serie — erscheint in Liste und Kalender.
+- ✨ **Kalender-Ansicht** in Termine: Monatsraster mit Punkten je Termin-Typ, beliebig vor- und zurückblättern, „Heute"-Sprung, Tagesliste darunter.
+- ✨ **„Auf den Startbildschirm"** (`lib/install.ts`, `components/InstallHint.vue`): Flutlicht-Hinweis mit zwei Lichtkegeln aufs Wappen — Chromium bekommt den echten Install-Dialog über `beforeinstallprompt`, iOS die Teilen-Anleitung (Safari vs. Chrome-iOS unterschieden). Kommt genau einmal beim ersten Einloggen, danach nur über den Menüpunkt.
+- 🐛 **Neue Version kam in der installierten App nie an**: als PWA wird die Seite nach dem Start nie wieder geladen, ein neues Binary blieb also unsichtbar. Der Server liefert jetzt unter `GET /api/version` einen Fingerabdruck des ausgelieferten Frontends (`web.Version()`); die App merkt sich den Wert beim Start und lädt sich neu, sobald er sich ändert — beim Auffrischen-Knopf, alle 15 Minuten und beim Zurückkehren aus dem Hintergrund.
+- ✨ **Auffrischen-Knopf** in der Kopfleiste (`lib/refresh.ts`) — als installierte App gibt es keine Browserleiste; jede Seite meldet ihre Ladefunktion an.
+- ✨ **Kasse**: bezahlte Strafen mit einem Tipp wieder öffnen (eigenes Icon) und einzelne Strafen direkt an der Zeile löschen.
+- ✨ **Kassen-Protokoll** (`models.PenaltyLog`, `GET /api/penalty-log`, Reiter „Protokoll"): jede Zuweisung, Löschung, Bezahlt-Änderung und Katalog-Änderung wird mit Zeitpunkt, Konto (Name + Alias), Spieler, Bezeichnung und Betrag festgehalten. Einträge sind über keine Route änder- oder löschbar.
+- ✨ **Manipulationsschutz**: jeder Protokolleintrag hängt per SHA-256 am Vorgänger (`prevHash`/`hash`). `GET /api/penalty-log/verify` rechnet die Kette nach und nennt den ersten veränderten Eintrag — auch ein Eingriff direkt in der Datenbank fliegt auf. Anhängen ist per Mutex serialisiert, damit die Kette nicht reißt.
+- ✨ **Jedes Konto ist auch Spieler**: neu angelegte Konten bekommen automatisch einen Kader-Eintrag und können selbst zu- und absagen — auch Admins und Strafenaufschreiber. Für Trainer/Betreuer gibt es die Option „Kein Kader-Eintrag" (`noPlayer`).
+- ✨ **Treffpunkt & Navigation**: die Spielstätte wird von der fussball.de-Spielseite gelesen (`internal/fussball/venue.go` — die Widgets liefern `venue: null`). An jedem kommenden Spiel steht jetzt Treffpunkt (**1:30 vor Anpfiff**), Platzname und ein Knopf für Google Maps bzw. Apple Karten (letzterer nur auf iOS).
+- ✨ **Geburtstage**: Feld bei der Registrierung und am Kader-Eintrag (`players.birthday`). Am Tag selbst geht eine Push-Gratulation an alle, die das eingeschaltet haben — inklusive Alter, wenn das Jahr bekannt ist.
+- ✨ **Erinnerungen selbst einstellen** (`GET/PUT /api/push/settings`, Menü → „Erinnerungen einstellen"): Vorlauf für Training, Spiel und Treffpunkt getrennt wählbar, jede Erinnerung einzeln abschaltbar, dazu die Rückmelde-Bitte und die Geburtstage. Der Erinnerungs-Loop rechnet jetzt **je Konto**; `push_deliveries` ersetzt `push_reminders` und nimmt das Konto in den Schlüssel auf.
+- ✨ **Diagramme in der Beteiligung** (`GET /api/stats/overview`): Beteiligungsquote je Monat, Einheiten je Monat (Training/Spiel getrennt), bester Wochentag und Strafen je Monat (offen/bezahlt). Alles aus PostgreSQL gerechnet, kein zweiter Datenbestand.
+- ✨ **Rundgang & Hilfe** (`lib/help.ts`, `components/TourSheet.vue`): nach dem ersten Login führt ein Rundgang einmalig durch alle Funktionen; derselbe Inhalt liegt dauerhaft als „Hilfe & Erklärung" im Menü. Kapitel, für die das Konto kein Recht hat, werden ausgeblendet.
+- 💄 Das Recht **`beteiligung`** ist jetzt auch in der Rechte-Liste der Verwaltung vergebbar (fehlte in der Oberfläche, obwohl es serverseitig längst geprüft wurde).
+
+## 01.08.2026 — Redesign „Flutlicht v2", Gegner-Scouting, Push, Hosting
+
+- 💄 **Redesign „Flutlicht v2"** (`styles/main.css`): neue Flächen-Tokens (dunkleres warmes Schwarz), `--surface-flat/-inset`, `--tile-black`, `--line-3`, `--gold-ink`. Pro Screen ein Signature-Element: **Matchday-Ticket** (Perforation, Trikot-Streifen, XXL-Countdown, Zu-/Absage direkt drin) · **Anzeigetafel-Leiste** (Platz/Punkte/Kasse als eine Einheit) · **Score-Tiles** · **Kassenzettel** · **Trikot-Nummer**.
+- 💄 Liga: eigene Position als große Karte mit **Formkurve** (S/U/N aus den letzten fünf Spielen), letztes Ergebnis als Beleg mit Score-Tiles. Termine: Karten statt Listenzeilen mit farbcodiertem Datumsblock und „Heute"-Highlight. Kader: Positions-Raster als Filter + trikotförmige Rückennummern. Tabbar ohne Gold-Strich, vierter Tab heißt jetzt **Kasse**.
+- ✨ **Gegner-Scouting** (`GET /api/fussball/scouting`): nächster Gegner mit Tabellenplatz, Toren, Formkurve, früheren Aufeinandertreffen und einem Satz Klartext — als Karte auf der Startseite.
+- ✨ **Spielerstatistik von fussball.de** (`GET /api/fussball/squad-stats`): Einsätze, **Einsatzminuten** und Tore je Spieler, sortierbar, Saison wählbar — im Kader unter „Statistik". Damit muss man für Zahlen nicht mehr auf fussball.de.
+- ⚙️ Neuer **Classic-Scraper** `internal/fussball/classic.go` für die klassischen `ajax.team.*`-Seiten (Kaderstatistik, Spielplan **beliebiger** Mannschaften → Gegner-Form). Verschleierte Texte werden schlüsselbezogen über `data-obfuscation` dekodiert. Die dauerhafte Mannschafts-ID wird beim Spiele-Abruf automatisch erkannt und am Verein gespeichert.
+- ✨ **Push-Benachrichtigungen** (Web-Push/VAPID, ohne Fremddienst): Vorschau-Erinnerung an alle ohne Rückmeldung (Spiel 24 h, Training 5 h vorher) und Kurz-vorher-Info an alle (3 h). Schalter im Menü, Service Worker + PWA-Manifest, Abo-Verwaltung unter `/api/push/*`. Tote Abos werden automatisch entfernt.
+- ✨ **Zusagen-Zähler** kommen direkt mit der Terminliste (`attending`/`declined`/`open`/`myStatus`) — kein Nachladen pro Termin mehr. Zu-/Absage jetzt auch mit einem Tipp vom Start-Ticket.
+- ✨ **Trainingsbeteiligung** hat wieder eine Oberfläche (`/beteiligung`, Recht `beteiligung`): Quote je Spieler mit Balken, Zeitraum 30 Tage / 3 Monate / Saison.
+- ✨ **Strafen-Rangliste**: Kasse sortiert nach offenem Betrag, Nummern-Badge und Strichliste; Spitzenreiter in Gold.
+- ✨ Optionaler **Instagram-Link** am Verein (`club.instagramUrl`, Prefix-Whitelist) → Icon in der Kopfleiste und Eintrag im Menü.
+- ⚙️ **Hosting**: Frontend wird ins Go-Binary eingebettet (`internal/web`, Vite baut nach `internal/web/dist`) — ein Artefakt, SPA-Routing inklusive. Dazu `Dockerfile` (Multi-Stage) und `compose.yaml` mit PostgreSQL. Neue Env-Schalter `PRODUCTION`, `COOKIE_SECURE`, `TRUSTED_PROXIES`; in Produktion ist `DATABASE_URL` Pflicht und das Session-Cookie bekommt `Secure`.
+
 ## 29.07.2026 — fussball.de nativ, Einladungs-Login, Strafen-Privatsphäre
 
 - ✨ **fussball.de nativ**: Tabelle + Spiele werden serverseitig von `next.fussball.de` geholt, die per Custom-Font verschleierten Daten dekodiert (Glyphennamen) und **im eigenen Design** gerendert — kein iframe, keine Domain-Sperre. Team-Logos inklusive.

@@ -45,6 +45,7 @@ export const useAuthStore = defineStore('auth', () => {
 		lastName: string;
 		alias: string;
 		password: string;
+		birthday?: string;
 	}) {
 		const { data } = await api.post<User>('/auth/register', payload);
 		user.value = data;

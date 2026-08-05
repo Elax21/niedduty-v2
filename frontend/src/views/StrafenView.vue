@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { api, apiError } from '../services/api';
+import { useRefresh } from '../lib/refresh';
 import { useAuthStore } from '../stores/auth';
 import { enterRows, countUp } from '../lib/motion';
 import { shareKasseImage } from '../lib/shareImage';
-import { Plus, Trash2, Check, Share2, Pencil } from 'lucide-vue-next';
+import { Plus, Trash2, Check, Share2, Pencil, RotateCcw, ShieldCheck, ShieldAlert } from 'lucide-vue-next';
 import AppModal from '../components/AppModal.vue';
-import type { Penalty, Player, PlayerPenalty } from '../types';
+import type { Penalty, Player, PlayerPenalty, PenaltyLogEntry, PenaltyLogCheck } from '../types';
 
 const auth = useAuthStore();
-const tab = ref<'kasse' | 'katalog'>('kasse');
+const tab = ref<'kasse' | 'katalog' | 'protokoll'>('kasse');
 const catalog = ref<Penalty[]>([]);
 const assigned = ref<PlayerPenalty[]>([]);
 const players = ref<Player[]>([]);
@@ -114,9 +115,47 @@ async function bulkDelete() {
 	await api.post('/player-penalties/delete', { ids: [...selected.value] });
 	await load();
 }
+/** Einzelne Strafe löschen — für Fehleinträge, ohne Umweg über die Auswahl. */
+async function removeAssigned(pp: PlayerPenalty) {
+	if (!window.confirm(`„${pp.label}" (${euro(pp.amount)}) wirklich löschen?`)) return;
+	await api.post('/player-penalties/delete', { ids: [pp.id] });
+	await load();
+}
+
 async function togglePaid(pp: PlayerPenalty) {
 	await api.post('/player-penalties/paid', { ids: [pp.id], paid: !pp.paid });
 	await load();
+}
+
+// ── Protokoll ──────────────────────────────────────────────────
+// Wer Strafen aufschreiben darf, darf auch löschen. Damit das niemand still
+// tut, steht jede Bewegung hier — inklusive Prüfung der Hash-Kette.
+const log = ref<PenaltyLogEntry[]>([]);
+const logCheck = ref<PenaltyLogCheck | null>(null);
+
+const actionLabels: Record<string, string> = {
+	aufgeschrieben: 'aufgeschrieben',
+	geloescht: 'gelöscht',
+	bezahlt: 'auf bezahlt gesetzt',
+	wieder_offen: 'wieder geöffnet',
+	katalog_geaendert: 'Katalog geändert',
+	katalog_geloescht: 'Katalog-Eintrag gelöscht'
+};
+
+async function openLog() {
+	tab.value = 'protokoll';
+	const [l, v] = await Promise.all([
+		api.get<PenaltyLogEntry[]>('/penalty-log'),
+		api.get<PenaltyLogCheck>('/penalty-log/verify')
+	]);
+	log.value = l.data;
+	logCheck.value = v.data;
+}
+
+function logTime(iso: string) {
+	return new Date(iso).toLocaleString('de-DE', {
+		day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+	});
 }
 
 // ── WhatsApp-Status ──
@@ -182,6 +221,7 @@ async function removeCatalog(p: Penalty) {
 }
 
 onMounted(load);
+useRefresh(load);
 </script>
 
 <template>
@@ -194,37 +234,32 @@ onMounted(load);
 
 	<p v-if="shareMsg" class="form-ok" role="status">{{ shareMsg }}</p>
 
-	<!-- KPIs -->
-	<div v-if="canWrite" class="stat-row str-anim">
-		<div class="stat rot">
-			<div class="k">Offen</div>
-			<div class="v" style="font-size: 22px">{{ euro(openShown) }}</div>
+	<!-- Signature: Kassenzettel -->
+	<section class="receipt str-anim">
+		<div class="halves">
+			<div class="half offen">
+				<div class="overline">{{ canWrite ? 'Offen' : 'Deine Strafen' }}</div>
+				<div class="amount">{{ euro(openShown) }}</div>
+			</div>
+			<div class="half bezahlt">
+				<div class="overline">{{ canWrite ? 'Bezahlt' : 'Kasse gesamt' }}</div>
+				<div class="amount">{{ canWrite ? euro(paidShown) : euro(teamOpenShown) }}</div>
+			</div>
 		</div>
-		<div class="stat gruen">
-			<div class="k">Bezahlt</div>
-			<div class="v" style="font-size: 22px">{{ euro(paidShown) }}</div>
-		</div>
-	</div>
-	<div v-else class="stat-row str-anim">
-		<div class="stat rot">
-			<div class="k">Dein offener Betrag</div>
-			<div class="v" style="font-size: 22px">{{ euro(openShown) }}</div>
-		</div>
-		<div class="stat">
-			<div class="k">Kasse gesamt offen</div>
-			<div class="v" style="font-size: 22px">{{ euro(teamOpenShown) }}</div>
-		</div>
-	</div>
-
-	<div v-if="auth.club?.kasseIban" class="iban-card str-anim">
-		<div class="k">Mannschaftskasse</div>
-		<div class="mono iban">{{ auth.club.kasseIban }}</div>
-		<div class="inh">{{ auth.club.kasseInhaber }}</div>
-	</div>
+		<template v-if="auth.club?.kasseIban">
+			<div class="tear" />
+			<div class="foot">
+				<div class="overline">Mannschaftskasse</div>
+				<div class="iban">{{ auth.club.kasseIban }}</div>
+				<div class="owner">{{ auth.club.kasseInhaber }}</div>
+			</div>
+		</template>
+	</section>
 
 	<div class="segmented" style="margin-top: 16px">
 		<button :class="{ active: tab === 'kasse' }" @click="tab = 'kasse'">Kasse</button>
 		<button :class="{ active: tab === 'katalog' }" @click="tab = 'katalog'">Katalog</button>
+		<button v-if="canWrite" :class="{ active: tab === 'protokoll' }" @click="openLog">Protokoll</button>
 	</div>
 
 	<!-- Bulk-Leiste -->
@@ -239,11 +274,13 @@ onMounted(load);
 	<!-- ── KASSE ── -->
 	<template v-if="tab === 'kasse'">
 		<div v-if="byPlayer.length" class="stack">
-			<div v-for="entry in byPlayer" :key="entry.player.id" class="card str-anim">
+			<!-- Nach offenem Betrag sortiert = Rangliste der Kabinen-Sünder -->
+			<div v-for="(entry, i) in byPlayer" :key="entry.player.id" class="card str-anim" :class="entry.open ? 'hat-offen' : 'ist-bezahlt'">
 				<div class="kasse-head">
+					<span class="rang" :class="{ top: i === 0 && entry.open > 0 }">{{ entry.player.number ?? i + 1 }}</span>
 					<strong>{{ entry.player.name }}</strong>
-					<span class="tally" aria-hidden="true">
-						<i v-for="n in Math.min(entry.items.filter(i => !i.paid).length, 12)" :key="n" class="stroke" :class="{ five: n % 5 === 0 }" />
+					<span class="tally-marks" aria-hidden="true">
+						<i v-for="n in Math.min(entry.items.filter(i2 => !i2.paid).length, 12)" :key="n" :class="{ fifth: n % 5 === 0 }" />
 					</span>
 					<span class="mono kasse-sum" :style="{ color: entry.open ? 'var(--bad)' : 'var(--gruen)' }">{{ euro(entry.open) }}</span>
 				</div>
@@ -252,12 +289,42 @@ onMounted(load);
 						<input v-if="canWrite" type="checkbox" class="kasse-check" :checked="selected.has(pp.id)" :aria-label="`${pp.label} auswählen`" @change="toggleSelect(pp.id)" />
 						<span class="grow">{{ pp.label }}</span>
 						<span class="mono">{{ euro(pp.amount) }}</span>
-						<button v-if="canWrite" class="btn sm icon" :class="{ gold: pp.paid }" :aria-label="pp.paid ? 'Als offen' : 'Als bezahlt'" @click="togglePaid(pp)"><Check :size="13" /></button>
+						<button v-if="canWrite" class="btn sm icon" :class="{ gold: pp.paid }" :aria-label="pp.paid ? 'Wieder öffnen' : 'Als bezahlt'" @click="togglePaid(pp)">
+							<component :is="pp.paid ? RotateCcw : Check" :size="13" />
+						</button>
+						<button v-if="canWrite" class="btn sm icon danger" aria-label="Strafe löschen" @click="removeAssigned(pp)"><Trash2 :size="13" /></button>
 					</div>
 				</div>
 			</div>
 		</div>
 		<div v-else class="card"><div class="empty">Noch keine Strafen aufgeschrieben. Die Kasse dankt trotzdem.</div></div>
+	</template>
+
+	<!-- ── PROTOKOLL ── -->
+	<template v-else-if="tab === 'protokoll'">
+		<div v-if="logCheck" class="card chain" :class="{ broken: !logCheck.ok }">
+			<component :is="logCheck.ok ? ShieldCheck : ShieldAlert" :size="20" />
+			<div class="grow">
+				<div class="t">{{ logCheck.message }}</div>
+				<div class="s">{{ logCheck.count }} Einträge · Hash-Kette geprüft</div>
+			</div>
+		</div>
+
+		<div class="card">
+			<div class="card-body flush">
+				<div v-for="e in log" :key="e.id" class="logrow" :class="e.action">
+					<span class="mono when">{{ logTime(e.createdAt) }}</span>
+					<span class="grow">
+						<span class="t">{{ e.actorName }} hat {{ actionLabels[e.action] ?? e.action }}</span>
+						<span class="s">
+							<template v-if="e.playerName">{{ e.playerName }} · </template>{{ e.label }}
+						</span>
+					</span>
+					<span class="mono amt">{{ euro(e.amount) }}</span>
+				</div>
+				<p v-if="!log.length" class="empty">Noch keine Bewegungen.</p>
+			</div>
+		</div>
 	</template>
 
 	<!-- ── KATALOG ── -->
@@ -350,17 +417,6 @@ onMounted(load);
 </template>
 
 <style scoped>
-.iban-card {
-	margin-top: 14px;
-	padding: 12px 15px;
-	background: var(--surface-2);
-	border: 1px solid var(--line);
-	border-radius: 14px;
-}
-.iban-card .k { font-family: var(--font-display); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-3); }
-.iban-card .iban { font-size: 15px; margin-top: 3px; }
-.iban-card .inh { font-size: 12.5px; color: var(--ink-2); }
-
 .bulk-bar {
 	display: flex;
 	align-items: center;
@@ -376,16 +432,47 @@ onMounted(load);
 	z-index: 20;
 }
 
+.card.hat-offen { border-color: rgba(239, 90, 79, 0.24); }
+.card.ist-bezahlt { border-color: rgba(87, 192, 125, 0.2); }
 .kasse-head { display: flex; align-items: center; gap: 10px; padding: 12px 15px; border-bottom: 1px solid var(--line); }
-.kasse-head strong { font-size: 16px; }
-.kasse-sum { margin-left: auto; font-weight: 600; }
-.tally { display: inline-flex; gap: 3px; align-items: flex-end; height: 15px; }
-.stroke { width: 2px; height: 14px; background: var(--ink-2); border-radius: 1px; display: inline-block; }
-.stroke.five { transform: rotate(-58deg) translateY(-2px); margin-left: -14px; }
+.kasse-head strong { font-size: 15.5px; }
+.kasse-sum { margin-left: auto; font-weight: 700; font-size: 15px; }
+/* Nummern-Badge: Rückennummer, sonst Platz in der Rangliste */
+.rang {
+	width: 32px; height: 32px;
+	flex-shrink: 0;
+	display: grid; place-items: center;
+	border-radius: 10px;
+	background: var(--surface-3);
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	font-size: 13px;
+	font-weight: 700;
+	color: var(--gold);
+}
+.rang.top { background: linear-gradient(180deg, var(--gold-soft), var(--gold)); color: var(--gold-ink); }
 
 .kasse-item { display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 10px 15px; color: var(--ink-2); border-bottom: 1px solid var(--line); }
 .kasse-item:last-child { border-bottom: none; }
-.kasse-item.paid { opacity: 0.5; }
+.kasse-item.paid { opacity: 0.62; }
+
+/* ── Protokoll ── */
+.chain { display: flex; align-items: center; gap: 12px; padding: 13px 15px; margin-bottom: 12px; }
+.chain :deep(svg) { color: var(--gruen); flex-shrink: 0; }
+.chain.broken :deep(svg) { color: var(--bad); }
+.chain .t { font-family: var(--font-display); font-size: 14.5px; font-weight: 600; color: var(--ink); }
+.chain .s { font-size: 12px; color: var(--ink-3); }
+.chain.broken .t { color: var(--bad); }
+
+.logrow { display: flex; align-items: center; gap: 11px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+.logrow:last-child { border-bottom: none; }
+.logrow .when { font-size: 11.5px; color: var(--ink-3); flex-shrink: 0; }
+.logrow .t { display: block; font-size: 13.5px; color: var(--ink); }
+.logrow .s { display: block; font-size: 12px; color: var(--ink-3); }
+.logrow .amt { font-size: 13px; color: var(--ink-2); }
+.logrow.geloescht .t { color: var(--bad); }
+.logrow.bezahlt .t { color: var(--gruen); }
+.logrow.wieder_offen .t { color: var(--warn); }
 .kasse-item.paid .grow { text-decoration: line-through; }
 .kasse-check { accent-color: var(--gold); width: 20px; height: 20px; flex-shrink: 0; }
 

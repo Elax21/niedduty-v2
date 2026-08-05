@@ -1,28 +1,34 @@
-/* ─── Niedduty · Design-System „MATCHDAY" ──────────────────────────
+/* ─── Niedduty · Design-System „FLUTLICHT v2" ──────────────────────
    Mobile-only App für ASG Aramäer Ahlen. Warmes Schwarz, Wappen-Gold
-   & Aramäer-Rot, Trikot-Diagonale als Signatur. Zahlen immer Mono +
-   tabular (Anzeigetafel). Große Tap-Ziele, nichts unter 12px.        */
+   & Aramäer-Rot. Zahlen immer Mono + tabular. Pro Screen genau ein
+   Signature-Element: Ticket · Anzeigetafel · Score-Tiles · Kassenzettel
+   · Trikot-Nummer. Große Tap-Ziele, Fließtext nie unter 12px.        */
 
 :root {
 	/* Flächen (warmes Schwarz, dunkel → hell) */
-	--bg: #0d0a06;
-	--surface-1: #17110a;
-	--surface-2: #1f1810;
-	--surface-3: #2a2013;
+	--bg: #0b0906;
+	--surface-1: #14100a;
+	--surface-2: #1d1710;
+	--surface-3: #271f14;
 	--surface-4: #362a18;
+	--surface-flat: #1a140d;
+	--surface-inset: #110d08;
+	--tile-black: #0a0803;
 
 	/* Schrift / Linien */
 	--ink: #f7f3e7;
 	--ink-2: rgba(247, 243, 231, 0.66);
 	--ink-3: rgba(247, 243, 231, 0.42);
-	--line: rgba(240, 168, 28, 0.15);
-	--line-2: rgba(240, 168, 28, 0.3);
+	--line: rgba(244, 177, 37, 0.14);
+	--line-2: rgba(244, 177, 37, 0.28);
+	--line-3: rgba(244, 177, 37, 0.2);
 
 	/* Verein */
 	--gold: #f4b125;
-	--gold-soft: #ffcf67;
+	--gold-soft: #ffd27a;
 	--gold-deep: #b9810f;
 	--gold-bg: rgba(244, 177, 37, 0.14);
+	--gold-ink: #2a1c04;
 	--rot: #d63a35;
 	--rot-soft: #f0625c;
 	--rot-deep: #9c1f24;
@@ -59,14 +65,16 @@
 	--t-med: 240ms;
 	--ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 
-	--radius: 16px;
-	--radius-sm: 11px;
-	--shadow-card: 0 10px 30px rgba(0, 0, 0, 0.4);
+	--radius: 18px;
+	--radius-card: 16px;
+	--radius-sm: 12px;
+	--shadow-card: 0 18px 40px rgba(0, 0, 0, 0.5);
+	--shadow-gold: 0 6px 18px rgba(244, 177, 37, 0.28);
 	--shadow-pop: 0 18px 44px rgba(0, 0, 0, 0.55);
 
 	/* Layout */
 	--app-max: 480px;
-	--appbar-h: 58px;
+	--appbar-h: 62px;
 	--tabbar-h: 66px;
 	--safe-top: env(safe-area-inset-top, 0px);
 	--safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -143,19 +151,19 @@ img { max-width: 100%; }
 	border-bottom: 1px solid var(--line);
 }
 .appbar .crest {
-	width: 38px; height: 38px;
-	border-radius: 11px;
+	width: 42px; height: 42px;
+	border-radius: 13px;
 	overflow: hidden;
 	background: #fff;
 	flex-shrink: 0;
-	box-shadow: 0 0 0 2px var(--gold-deep), 0 4px 12px rgba(0, 0, 0, 0.5);
+	box-shadow: 0 0 0 2px var(--gold-deep), 0 6px 16px rgba(0, 0, 0, 0.55);
 }
 .appbar .crest img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .appbar .titles { min-width: 0; flex: 1; }
 .appbar .titles .name {
 	font-family: var(--font-display);
 	font-weight: 700;
-	font-size: 18px;
+	font-size: 19px;
 	text-transform: uppercase;
 	letter-spacing: 0.02em;
 	line-height: 1;
@@ -163,16 +171,28 @@ img { max-width: 100%; }
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
-.appbar .titles .sub { font-size: 11.5px; color: var(--ink-3); letter-spacing: 0.03em; text-transform: uppercase; }
+.appbar .titles .sub {
+	font-family: var(--font-mono);
+	font-size: 10.5px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: rgba(244, 177, 37, 0.75);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	margin-top: 2px;
+}
 .appbar .bar-btn {
 	width: 40px; height: 40px;
 	display: grid; place-items: center;
-	border-radius: 11px;
+	border-radius: 13px;
 	color: var(--ink-2);
-	border: 1px solid var(--line);
+	border: 1px solid var(--line-2);
 	background: var(--surface-2);
+	flex-shrink: 0;
 	transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast);
 }
+.appbar .bar-btn.gold-ic { color: var(--gold); }
 .appbar .bar-btn:active { transform: scale(0.94); }
 .appbar .bar-btn:hover { color: var(--gold); border-color: var(--line-2); }
 
@@ -192,10 +212,10 @@ img { max-width: 100%; }
 	height: calc(var(--tabbar-h) + var(--safe-bottom));
 	padding-bottom: var(--safe-bottom);
 	display: flex;
-	background: rgba(15, 11, 6, 0.9);
+	background: linear-gradient(180deg, rgba(11, 9, 6, 0.4), rgba(11, 9, 6, 0.96) 42%);
 	backdrop-filter: blur(16px);
 	-webkit-backdrop-filter: blur(16px);
-	border-top: 1px solid var(--line-2);
+	border-top: 1px solid rgba(244, 177, 37, 0.18);
 }
 .tabitem {
 	flex: 1;
@@ -219,17 +239,9 @@ img { max-width: 100%; }
 	width: 30px; height: 30px;
 	transition: transform var(--t-med) var(--ease-out);
 }
+/* Aktiv = reine Farbumschaltung, kein Strich mehr. */
 .tabitem.router-link-active { color: var(--gold); }
 .tabitem.router-link-active .ic { transform: translateY(-1px); }
-.tabitem.router-link-active::before {
-	content: '';
-	position: absolute;
-	top: 0;
-	width: 34px; height: 3px;
-	border-radius: 0 0 3px 3px;
-	background: var(--gold);
-	box-shadow: 0 0 12px var(--gold);
-}
 
 /* ─── Seitenkopf ────────────────────────────────────────────────── */
 .page-head {
@@ -239,8 +251,16 @@ img { max-width: 100%; }
 	gap: 12px;
 	margin: 4px 2px 16px;
 }
-.page-head h1 { font-size: 30px; }
+.page-head h1 { font-size: 34px; font-weight: 800; line-height: 1; }
 .page-head .sub { color: var(--ink-3); font-size: 12.5px; }
+.page-head .sub-mono {
+	font-family: var(--font-mono);
+	font-size: 10.5px;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
+	color: var(--gold);
+	white-space: nowrap;
+}
 
 /* ─── Karten ────────────────────────────────────────────────────── */
 .card {
@@ -554,6 +574,462 @@ img { max-width: 100%; }
 	border-radius: 50%;
 	background: var(--bg);
 }
+
+/* ═══ FLUTLICHT v2 ════════════════════════════════════════════════
+   Signature-Elemente je Screen. Reihenfolge wie die Screens:
+   Start · Liga · Termine · Kasse · Kader.                          */
+
+/* Der Flutlicht-Glow wechselt je Screen die Akzentfarbe. */
+.app[data-screen='strafen'] {
+	background-image: radial-gradient(120% 40% at 50% -6%, rgba(214, 58, 53, 0.14), transparent 62%);
+}
+
+/* ─── Start · Matchday-Ticket ───────────────────────────────────── */
+.ticket {
+	position: relative;
+	border: 1px solid rgba(244, 177, 37, 0.3);
+	border-radius: 20px;
+	overflow: hidden;
+	background:
+		linear-gradient(158deg, rgba(214, 58, 53, 0.34), transparent 58%),
+		linear-gradient(180deg, var(--surface-3), var(--surface-1));
+	box-shadow: var(--shadow-card);
+}
+.ticket.training {
+	background:
+		linear-gradient(158deg, rgba(87, 192, 125, 0.22), transparent 58%),
+		linear-gradient(180deg, var(--surface-3), var(--surface-1));
+}
+/* Trikot-Streifen als Deko, oben rechts angeschnitten */
+.ticket::before {
+	content: '';
+	position: absolute;
+	right: -46px; top: -70px;
+	width: 190px; height: 280px;
+	transform: rotate(21deg);
+	background: repeating-linear-gradient(90deg, rgba(244, 177, 37, 0.07) 0 13px, transparent 13px 30px);
+	pointer-events: none;
+}
+.ticket-top { position: relative; padding: 14px 16px 16px; }
+.ticket-line {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 10px;
+	margin-bottom: 14px;
+}
+.ticket-meta { font-family: var(--font-mono); font-size: 11px; color: var(--ink-3); letter-spacing: 0.06em; }
+.ticket-body { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.ticket-vs {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: rgba(244, 177, 37, 0.8);
+}
+.ticket-opp {
+	font-family: var(--font-display);
+	font-size: 31px;
+	font-weight: 800;
+	line-height: 1.02;
+	text-transform: uppercase;
+	margin-top: 3px;
+}
+.ticket-count { text-align: center; flex-shrink: 0; }
+.ticket-count .n {
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	font-size: 44px;
+	font-weight: 700;
+	line-height: 0.9;
+	color: var(--gold);
+}
+.ticket-count .l {
+	font-family: var(--font-display);
+	font-size: 11.5px;
+	font-weight: 700;
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+	color: var(--ink-3);
+	margin-top: 5px;
+}
+.ticket-facts {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 16px;
+	margin-top: 14px;
+	font-size: 13px;
+	color: var(--ink-2);
+}
+.ticket-facts .time { color: rgba(244, 177, 37, 0.9); }
+/* Perforation mit Kerben links und rechts */
+.perf {
+	position: relative;
+	height: 1px;
+	margin: 0 14px;
+	background: repeating-linear-gradient(90deg, rgba(244, 177, 37, 0.4) 0 6px, transparent 6px 12px);
+}
+.perf::before, .perf::after {
+	content: '';
+	position: absolute;
+	top: -8px;
+	width: 16px; height: 16px;
+	border-radius: 50%;
+	background: var(--bg);
+}
+.perf::before { left: -22px; }
+.perf::after { right: -22px; }
+.ticket-foot { display: flex; gap: 10px; padding: 14px 16px; }
+
+/* Zu-/Absage-Knöpfe (auch in Termin-Karten) */
+.rsvp {
+	flex: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	height: 44px;
+	font-family: var(--font-display);
+	font-size: 14px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	border-radius: 12px;
+	border: 1px solid rgba(247, 243, 231, 0.16);
+	color: var(--ink-2);
+	transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast), transform var(--t-fast);
+}
+.rsvp:active { transform: scale(0.96); }
+.rsvp.yes { border-color: var(--line-2); color: var(--gold); }
+.rsvp.yes.on {
+	background: linear-gradient(180deg, var(--gold-soft), var(--gold));
+	border-color: var(--gold);
+	color: var(--gold-ink);
+	box-shadow: var(--shadow-gold);
+}
+.rsvp.no.on { background: var(--bad-bg); border-color: rgba(239, 90, 79, 0.5); color: var(--bad); }
+.rsvp.sm { height: 34px; border-radius: 10px; font-size: 12.5px; flex: 0 0 auto; padding: 0 14px; }
+
+/* ─── Start · Anzeigetafel-Leiste ───────────────────────────────── */
+.scoreboard {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	padding: 12px;
+	background: var(--surface-inset);
+	border: 1px solid var(--line);
+	border-radius: 18px;
+}
+.scoreboard .cell { text-align: center; }
+.scoreboard .cell + .cell { border-left: 1px solid var(--line); }
+.scoreboard .n {
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	font-size: 28px;
+	font-weight: 700;
+	line-height: 1;
+	color: var(--gold);
+}
+.scoreboard .cell.punkte .n { color: var(--ink); }
+.scoreboard .cell.kasse .n { color: var(--bad); }
+.scoreboard .l {
+	font-family: var(--font-display);
+	font-size: 10.5px;
+	font-weight: 700;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--ink-3);
+	margin-top: 6px;
+}
+
+/* ─── Overline / Monatsband ─────────────────────────────────────── */
+.overline {
+	font-family: var(--font-display);
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.14em;
+	text-transform: uppercase;
+	color: var(--ink-3);
+}
+.band {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin: 18px 2px 10px;
+}
+.band .lbl {
+	font-family: var(--font-display);
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.16em;
+	text-transform: uppercase;
+	color: var(--gold);
+}
+.band .rule { flex: 1; height: 1px; background: rgba(244, 177, 37, 0.2); }
+
+/* ─── Liga · eigene Position + Formkurve ────────────────────────── */
+.pos-card {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding: 15px 17px;
+	border: 1px solid rgba(244, 177, 37, 0.26);
+	border-radius: 18px;
+	background:
+		linear-gradient(120deg, rgba(214, 58, 53, 0.3), rgba(20, 16, 10, 0.2) 62%),
+		linear-gradient(180deg, var(--surface-3), var(--surface-1));
+}
+.pos-card .rank {
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	font-size: 48px;
+	font-weight: 700;
+	line-height: 1;
+	color: var(--gold);
+}
+.pos-card .mid { flex: 1; min-width: 0; }
+.pos-card .team {
+	font-family: var(--font-display);
+	font-size: 19px;
+	font-weight: 700;
+	text-transform: uppercase;
+	line-height: 1.1;
+}
+.pos-card .pts { text-align: right; }
+.pos-card .pts .n {
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	font-size: 26px;
+	font-weight: 700;
+	line-height: 1;
+}
+.formrow { display: flex; align-items: center; gap: 5px; margin-top: 8px; }
+.formchip {
+	width: 20px; height: 20px;
+	display: grid; place-items: center;
+	border-radius: 6px;
+	font-family: var(--font-mono);
+	font-size: 11px;
+	font-weight: 700;
+	color: var(--tile-black);
+	background: rgba(247, 243, 231, 0.16);
+}
+.formchip.S { background: rgba(87, 192, 125, 0.9); }
+.formchip.U { background: rgba(231, 187, 70, 0.85); }
+.formchip.N { background: rgba(239, 90, 79, 0.85); }
+.formrow .cap { margin-left: 4px; }
+
+/* Score-Tiles (letztes Ergebnis) */
+.score-tiles { display: flex; align-items: center; justify-content: center; gap: 4px; }
+.score-tiles .t {
+	min-width: 34px; height: 40px;
+	display: grid; place-items: center;
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	font-size: 24px;
+	font-weight: 700;
+	color: var(--gold);
+	background: var(--tile-black);
+	border: 1px solid var(--line-3);
+	border-radius: 9px;
+	box-shadow: inset 0 -10px 14px rgba(0, 0, 0, 0.6);
+}
+.score-tiles .sep { color: var(--ink-3); font-family: var(--font-mono); }
+
+/* ─── Termine · Karten ──────────────────────────────────────────── */
+.evcard {
+	display: flex;
+	gap: 13px;
+	padding: 14px;
+	border-radius: var(--radius-card);
+	background: var(--surface-flat);
+	border: 1px solid var(--line);
+}
+.evcard + .evcard { margin-top: 10px; }
+.evcard.spiel {
+	background: linear-gradient(90deg, rgba(214, 58, 53, 0.2), rgba(29, 23, 16, 0.9) 66%);
+	border-color: rgba(240, 98, 92, 0.28);
+}
+.evcard.heute {
+	background: linear-gradient(90deg, rgba(244, 177, 37, 0.14), rgba(29, 23, 16, 0.9) 62%);
+	border-color: rgba(244, 177, 37, 0.3);
+}
+.datebox {
+	width: 50px;
+	flex-shrink: 0;
+	align-self: flex-start;
+	padding: 7px 0;
+	text-align: center;
+	background: var(--tile-black);
+	border: 1px solid var(--line);
+	border-radius: 12px;
+}
+.datebox .wd { font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; }
+.datebox .d {
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	font-size: 23px;
+	font-weight: 700;
+	line-height: 1.1;
+}
+.evcard.spiel .datebox { border-color: rgba(240, 98, 92, 0.4); }
+.evcard.spiel .datebox .d { color: var(--rot-soft); }
+.evcard.training .datebox { border-color: rgba(87, 192, 125, 0.35); }
+.evcard.heute .datebox { border-color: rgba(244, 177, 37, 0.45); }
+.evcard.heute .datebox .d { color: var(--gold); }
+.evcard .grow { flex: 1; min-width: 0; }
+.evcard .t { font-size: 16px; font-weight: 600; line-height: 1.2; }
+.evcard .m { font-size: 12.5px; color: rgba(247, 243, 231, 0.5); margin-top: 3px; }
+.evcard .actions { display: flex; align-items: center; gap: 8px; margin-top: 11px; }
+.evcard .tally { margin-left: auto; font-family: var(--font-mono); font-size: 12.5px; }
+
+/* Zusagen-Zähler (auch auf Start) */
+.count-yes { color: var(--gruen); }
+.count-no { color: var(--bad); }
+.count-open { color: var(--ink-3); }
+
+/* ─── Kasse · Kassenzettel ──────────────────────────────────────── */
+.receipt {
+	border: 1px solid var(--line-3);
+	border-radius: 18px;
+	background: linear-gradient(180deg, #1f1811, var(--surface-1));
+	overflow: hidden;
+}
+.receipt .halves { display: grid; grid-template-columns: 1fr 1fr; }
+.receipt .half { padding: 15px 16px; text-align: center; }
+.receipt .half + .half { border-left: 1px dashed rgba(244, 177, 37, 0.28); }
+.receipt .amount {
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	font-size: 29px;
+	font-weight: 700;
+	line-height: 1;
+	margin-top: 6px;
+}
+.receipt .half.offen .amount { color: var(--bad); }
+.receipt .half.bezahlt .amount { color: var(--gruen); }
+.receipt .tear {
+	height: 1px;
+	background: repeating-linear-gradient(90deg, rgba(244, 177, 37, 0.3) 0 6px, transparent 6px 12px);
+}
+.receipt .foot { padding: 13px 16px 15px; text-align: center; }
+.receipt .iban { font-family: var(--font-mono); font-size: 14px; margin-top: 5px; }
+.receipt .owner { font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
+
+/* Strichliste (5er-Bündel) */
+.tally-marks { display: inline-flex; align-items: center; gap: 3px; height: 14px; }
+.tally-marks i {
+	display: block;
+	width: 2px; height: 14px;
+	background: var(--ink-3);
+	border-radius: 1px;
+}
+.tally-marks i.fifth { transform: rotate(-58deg); margin-left: -14px; background: var(--gold); }
+
+/* ─── Kader · Trikot-Nummer + Positionsraster ───────────────────── */
+.posgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.postile {
+	padding: 10px 8px;
+	text-align: center;
+	border-radius: 13px;
+	background: var(--surface-flat);
+	border: 1px solid var(--line);
+	transition: background var(--t-fast), color var(--t-fast);
+}
+.postile.on {
+	background: linear-gradient(180deg, var(--gold-soft), var(--gold));
+	border-color: var(--gold);
+	color: var(--gold-ink);
+}
+.postile .n { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 17px; font-weight: 700; line-height: 1; }
+.postile .l { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 4px; color: var(--ink-3); }
+.postile.on .l { color: rgba(42, 28, 4, 0.7); }
+
+.jersey {
+	width: 38px; height: 44px;
+	flex-shrink: 0;
+	display: grid; place-items: center;
+	border-radius: 8px 8px 12px 12px;
+	background: linear-gradient(180deg, var(--surface-3), var(--surface-1));
+	border: 1px solid rgba(244, 177, 37, 0.22);
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	font-size: 17px;
+	font-weight: 700;
+	color: var(--gold);
+}
+.prow {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 11px 14px;
+	border-radius: 14px;
+	background: var(--surface-flat);
+}
+.prow + .prow { margin-top: 8px; }
+.prow .grow { flex: 1; min-width: 0; }
+.prow .n { font-size: 15.5px; font-weight: 600; }
+.prow .r { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+
+/* ─── Gegner-Steckbrief (Start) ─────────────────────────────────── */
+.oppcard { padding: 15px; }
+.opphead { display: flex; align-items: center; gap: 12px; }
+.opphead .logo {
+	width: 40px; height: 40px;
+	flex-shrink: 0;
+	border-radius: 10px;
+	background: rgba(247, 243, 231, 0.06);
+	object-fit: contain;
+	padding: 4px;
+}
+.opphead .nm { font-family: var(--font-display); font-size: 18px; font-weight: 700; text-transform: uppercase; line-height: 1.1; }
+.opphead .pl { font-family: var(--font-mono); font-size: 11px; color: var(--gold); letter-spacing: 0.1em; margin-top: 2px; }
+.oppsum { font-size: 13.5px; color: var(--ink-2); margin-top: 12px; line-height: 1.45; }
+.oppgrid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 1px;
+	margin-top: 13px;
+	background: var(--line);
+	border: 1px solid var(--line);
+	border-radius: 12px;
+	overflow: hidden;
+}
+.oppgrid .c { background: var(--surface-inset); padding: 9px 6px; text-align: center; }
+.oppgrid .c .v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 700; }
+.oppgrid .c .k { font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); margin-top: 3px; }
+
+/* ─── Statistikzeile (Kaderstatistik fussball.de) ───────────────── */
+.statrow {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 11px 15px;
+	border-bottom: 1px solid var(--line);
+}
+.statrow:last-child { border-bottom: none; }
+.statrow .rank {
+	width: 22px;
+	font-family: var(--font-mono);
+	font-size: 12px;
+	color: var(--ink-3);
+	text-align: right;
+}
+.statrow .nm { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.statrow .v {
+	font-family: var(--font-mono);
+	font-variant-numeric: tabular-nums;
+	font-size: 13.5px;
+	min-width: 44px;
+	text-align: right;
+}
+.statrow .v.gold { color: var(--gold); font-weight: 700; }
+.statrow .v.dim { color: var(--ink-3); }
+
+/* Quotenbalken (Trainingsbeteiligung) */
+.quota { height: 5px; border-radius: 3px; background: rgba(247, 243, 231, 0.1); overflow: hidden; margin-top: 6px; }
+.quota > i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); transform-origin: left; }
+.quota > i.gut { background: linear-gradient(90deg, #3f9a63, var(--gruen)); }
+.quota > i.schwach { background: linear-gradient(90deg, #a83a33, var(--bad)); }
 
 @media (prefers-reduced-motion: reduce) {
 	*, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

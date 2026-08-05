@@ -29,7 +29,7 @@ func (a *API) startSession(c *gin.Context, user models.User) bool {
 		return false
 	}
 	c.SetSameSite(http.SameSiteLaxMode)
-	c.SetCookie(middleware.SessionCookie, token, int(sessionTTL.Seconds()), "/", "", false, true)
+	c.SetCookie(middleware.SessionCookie, token, int(sessionTTL.Seconds()), "/", "", a.secureCookies, true)
 	return true
 }
 
@@ -63,7 +63,7 @@ func (a *API) Logout(c *gin.Context) {
 	if token, err := c.Cookie(middleware.SessionCookie); err == nil {
 		a.db.Delete(&models.Session{}, "token = ?", token)
 	}
-	c.SetCookie(middleware.SessionCookie, "", -1, "/", "", false, true)
+	c.SetCookie(middleware.SessionCookie, "", -1, "/", "", a.secureCookies, true)
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 

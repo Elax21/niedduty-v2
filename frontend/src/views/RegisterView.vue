@@ -18,6 +18,7 @@ const firstName = ref('');
 const lastName = ref('');
 const alias = ref('');
 const password = ref('');
+const birthday = ref('');
 const error = ref('');
 const busy = ref(false);
 
@@ -56,7 +57,8 @@ async function submit() {
 			firstName: firstName.value.trim(),
 			lastName: lastName.value.trim(),
 			alias: alias.value.trim().toLowerCase(),
-			password: password.value
+			password: password.value,
+			birthday: birthday.value
 		});
 		router.push('/');
 	} catch (e) {
@@ -92,6 +94,10 @@ async function submit() {
 						<label for="al">Alias (Login-Name)</label>
 						<input id="al" v-model="alias" autocapitalize="none" autocomplete="username" placeholder="z.B. tuma9" required />
 						<span class="hint">3–24 Zeichen: a–z, 0–9, . _ -</span>
+					</div>
+					<div class="field">
+						<label for="bd">Geburtstag (für die Glückwünsche)</label>
+						<input id="bd" v-model="birthday" type="date" autocomplete="bday" />
 					</div>
 					<div class="field">
 						<label for="pw">Passwort</label>
