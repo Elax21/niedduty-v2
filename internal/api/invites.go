@@ -84,6 +84,8 @@ type registerReq struct {
 	LastName  string `json:"lastName" binding:"required,max=60"`
 	Alias     string `json:"alias" binding:"required"`
 	Password  string `json:"password" binding:"required,min=8,max=100"`
+	// Birthday "YYYY-MM-DD" — optional, für die Geburtstagserinnerung.
+	Birthday string `json:"birthday" binding:"omitempty,len=10"`
 }
 
 // Register (öffentlich) — Selbstregistrierung per Einladungslink.
@@ -119,7 +121,7 @@ func (a *API) Register(c *gin.Context) {
 
 	var user models.User
 	txErr := a.db.Transaction(func(tx *gorm.DB) error {
-		player := models.Player{Name: name, Position: "MF", Status: "fit"}
+		player := models.Player{Name: name, Position: "MF", Status: "fit", Birthday: req.Birthday}
 		if err := tx.Create(&player).Error; err != nil {
 			return err
 		}

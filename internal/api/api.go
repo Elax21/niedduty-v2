@@ -3,22 +3,32 @@ package api
 import (
 	"github.com/alessandro/niedduty/internal/middleware"
 	"github.com/alessandro/niedduty/internal/models"
+	"github.com/alessandro/niedduty/internal/web"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
-// API bündelt die DB für alle Handler.
+// API bündelt DB und Laufzeit-Einstellungen für alle Handler.
 type API struct {
 	db *gorm.DB
+	// secureCookies — Session-Cookie nur über HTTPS ausliefern (Produktion).
+	secureCookies bool
 }
 
-func New(db *gorm.DB) *API {
-	return &API{db: db}
+func New(db *gorm.DB, secureCookies bool) *API {
+	return &API{db: db, secureCookies: secureCookies}
 }
 
 // Routes registriert alle HTTP-Routen.
 func (a *API) Routes(r *gin.Engine) {
 	r.GET("/healthz", func(c *gin.Context) { c.JSON(200, gin.H{"ok": true}) })
+
+	// Build-Kennung des Frontends. Die installierte App vergleicht sie und
+	// lädt sich neu, wenn ein neues Binary läuft.
+	r.GET("/api/version", func(c *gin.Context) {
+		c.Header("Cache-Control", "no-store")
+		c.JSON(200, gin.H{"version": web.Version()})
+	})
 
 	r.POST("/api/auth/login", a.Login)
 	r.POST("/api/auth/logout", a.Logout)
@@ -35,8 +45,18 @@ func (a *API) Routes(r *gin.Engine) {
 		auth.GET("/player-penalties", a.ListPlayerPenalties)
 		auth.GET("/player-penalties/summary", a.PenaltiesSummary)
 		auth.GET("/events", a.ListEvents)
+		auth.GET("/training-schedule", a.GetTrainingSchedule)
+		auth.GET("/stats/overview", a.StatsOverview)
 		auth.GET("/fussball/matches", a.GetMatches)
+		auth.GET("/fussball/scouting", a.GetScouting)
+		auth.GET("/fussball/squad-stats", a.GetSquadStats)
 		auth.GET("/attendance", a.ListAttendance)
+		auth.GET("/push/key", a.GetPushKey)
+		auth.POST("/push/subscribe", a.Subscribe)
+		auth.POST("/push/unsubscribe", a.Unsubscribe)
+		auth.POST("/push/test", a.TestPush)
+		auth.GET("/push/settings", a.GetPushSettings)
+		auth.PUT("/push/settings", a.PutPushSettings)
 		// Spieler dürfen die eigene Zu-/Absage setzen; Handler prüft Ownership.
 		auth.PUT("/attendance", a.SetAttendance)
 
@@ -52,6 +72,8 @@ func (a *API) Routes(r *gin.Engine) {
 			strafen.POST("/player-penalties", a.AssignPenalty)
 			strafen.POST("/player-penalties/paid", a.SetPenaltiesPaid)
 			strafen.POST("/player-penalties/delete", a.DeletePlayerPenalties)
+			strafen.GET("/penalty-log", a.ListPenaltyLog)
+			strafen.GET("/penalty-log/verify", a.VerifyPenaltyLog)
 		}
 
 		// Termin-Einsteller: Admin oder Recht "termine".
@@ -60,15 +82,17 @@ func (a *API) Routes(r *gin.Engine) {
 			termine.POST("/events", a.CreateEvent)
 			termine.PUT("/events/:id", a.UpdateEvent)
 			termine.DELETE("/events/:id", a.DeleteEvent)
+			termine.PUT("/training-schedule", a.PutTrainingSchedule)
+			termine.PUT("/event-notes", a.PutEventNote)
 		}
 
 		// Nur Admin: Einstellungen, Benutzer + Rechte, Kader, Tabelle.
 		admin := auth.Group("", middleware.RequireAdmin())
 		{
 			admin.PUT("/club", a.UpdateClub)
-		admin.GET("/invite", a.GetInvite)
-		admin.POST("/invite", a.CreateInvite)
-		admin.DELETE("/invite", a.DeactivateInvite)
+			admin.GET("/invite", a.GetInvite)
+			admin.POST("/invite", a.CreateInvite)
+			admin.DELETE("/invite", a.DeactivateInvite)
 			admin.GET("/users", a.ListUsers)
 			admin.POST("/users", a.CreateUser)
 			admin.PUT("/users/:id", a.UpdateUser)
@@ -77,7 +101,7 @@ func (a *API) Routes(r *gin.Engine) {
 			admin.PUT("/players/:id", a.UpdatePlayer)
 			admin.DELETE("/players/:id", a.DeletePlayer)
 			admin.PUT("/table", a.ReplaceTable)
-		admin.POST("/table/sync", a.SyncTable)
+			admin.POST("/table/sync", a.SyncTable)
 		}
 	}
 }

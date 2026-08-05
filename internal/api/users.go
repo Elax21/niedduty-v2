@@ -39,6 +39,10 @@ type createUserReq struct {
 	Password    string     `json:"password" binding:"required,min=8,max=100"`
 	Permissions []string   `json:"permissions"`
 	PlayerID    *uuid.UUID `json:"playerId"`
+	// NoPlayer — für Konten ohne Kader-Eintrag (Trainer, Betreuer). Ohne die
+	// Angabe bekommt jedes neue Konto einen Spieler und kann selbst zu- und
+	// absagen — auch Admins und Strafenaufschreiber.
+	NoPlayer bool `json:"noPlayer"`
 }
 
 func (a *API) CreateUser(c *gin.Context) {
@@ -68,9 +72,18 @@ func (a *API) CreateUser(c *gin.Context) {
 	if e := strings.TrimSpace(req.Email); e != "" {
 		email = &e
 	}
+	// Jeder ist auch Spieler, außer es wird ausdrücklich abgewählt.
+	playerID := req.PlayerID
+	if playerID == nil && !req.NoPlayer {
+		player := models.Player{Name: req.Name, Position: "MF", Status: "fit"}
+		if err := a.db.Create(&player).Error; err == nil {
+			playerID = &player.ID
+		}
+	}
+
 	u := models.User{
 		Alias: alias, Email: email, Name: req.Name, PasswordHash: string(hash),
-		Role: models.RoleMember, Permissions: req.Permissions, PlayerID: req.PlayerID,
+		Role: models.RoleMember, Permissions: req.Permissions, PlayerID: playerID,
 	}
 	if err := a.db.Create(&u).Error; err != nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "Alias oder E-Mail bereits vergeben"})

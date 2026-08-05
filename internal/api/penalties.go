@@ -30,6 +30,7 @@ func (a *API) CreatePenalty(c *gin.Context) {
 	}
 	p := models.Penalty{Label: req.Label, Amount: req.Amount, Unit: req.Unit, SortOrder: req.SortOrder}
 	a.db.Create(&p)
+	a.writePenaltyLog(c, logEntry{Action: models.PenaltyActionCatalog, Label: p.Label, Amount: p.Amount})
 	c.JSON(http.StatusCreated, p)
 }
 
@@ -46,11 +47,15 @@ func (a *API) UpdatePenalty(c *gin.Context) {
 	}
 	p.Label, p.Amount, p.Unit, p.SortOrder = req.Label, req.Amount, req.Unit, req.SortOrder
 	a.db.Save(&p)
+	a.writePenaltyLog(c, logEntry{Action: models.PenaltyActionCatalog, Label: p.Label, Amount: p.Amount})
 	c.JSON(http.StatusOK, p)
 }
 
 func (a *API) DeletePenalty(c *gin.Context) {
+	var p models.Penalty
+	a.db.First(&p, "id = ?", c.Param("id"))
 	a.db.Delete(&models.Penalty{}, "id = ?", c.Param("id"))
+	a.writePenaltyLog(c, logEntry{Action: models.PenaltyActionCatalogX, Label: p.Label, Amount: p.Amount})
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -151,7 +156,37 @@ func (a *API) AssignPenalty(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Strafen konnten nicht gespeichert werden"})
 		return
 	}
+
+	names := a.playerNames(req.PlayerIDs)
+	entries := make([]logEntry, 0, len(rows))
+	for i := range rows {
+		pid := rows[i].PlayerID
+		entries = append(entries, logEntry{
+			Action: models.PenaltyActionAssign, PlayerID: &pid, PlayerName: names[pid],
+			Label: rows[i].Label, Amount: rows[i].Amount,
+		})
+	}
+	a.writePenaltyLog(c, entries...)
+
 	c.JSON(http.StatusCreated, rows)
+}
+
+// penaltyEntries baut Protokollzeilen aus bestehenden Strafen.
+func penaltyEntries(a *API, rows []models.PlayerPenalty, action string) []logEntry {
+	ids := make([]uuid.UUID, 0, len(rows))
+	for _, r := range rows {
+		ids = append(ids, r.PlayerID)
+	}
+	names := a.playerNames(ids)
+	entries := make([]logEntry, 0, len(rows))
+	for i := range rows {
+		pid := rows[i].PlayerID
+		entries = append(entries, logEntry{
+			Action: action, PlayerID: &pid, PlayerName: names[pid],
+			Label: rows[i].Label, Amount: rows[i].Amount,
+		})
+	}
+	return entries
 }
 
 type bulkPaidReq struct {
@@ -166,7 +201,17 @@ func (a *API) SetPenaltiesPaid(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Keine Strafe ausgewählt"})
 		return
 	}
+	// Vorher lesen: nur so weiß das Protokoll, um welche Strafen es geht.
+	var rows []models.PlayerPenalty
+	a.db.Where("id IN ?", req.IDs).Find(&rows)
 	a.db.Model(&models.PlayerPenalty{}).Where("id IN ?", req.IDs).Update("paid", req.Paid)
+
+	action := models.PenaltyActionPaid
+	if !req.Paid {
+		action = models.PenaltyActionUnpaid
+	}
+	a.writePenaltyLog(c, penaltyEntries(a, rows, action)...)
+
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -181,6 +226,9 @@ func (a *API) DeletePlayerPenalties(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Keine Strafe ausgewählt"})
 		return
 	}
+	var rows []models.PlayerPenalty
+	a.db.Where("id IN ?", req.IDs).Find(&rows)
 	a.db.Delete(&models.PlayerPenalty{}, "id IN ?", req.IDs)
+	a.writePenaltyLog(c, penaltyEntries(a, rows, models.PenaltyActionDelete)...)
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }

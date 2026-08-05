@@ -15,6 +15,7 @@ type playerReq struct {
 	Number   *int   `json:"number"`
 	Position string `json:"position" binding:"required"`
 	Status   string `json:"status"`
+	Birthday string `json:"birthday" binding:"omitempty,len=10"`
 }
 
 func (r *playerReq) validate() string {
@@ -46,7 +47,7 @@ func (a *API) CreatePlayer(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 		return
 	}
-	p := models.Player{Name: req.Name, Number: req.Number, Position: req.Position, Status: "fit"}
+	p := models.Player{Name: req.Name, Number: req.Number, Position: req.Position, Status: "fit", Birthday: req.Birthday}
 	if req.Status != "" {
 		p.Status = req.Status
 	}
@@ -72,7 +73,7 @@ func (a *API) UpdatePlayer(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": msg})
 		return
 	}
-	p.Name, p.Number, p.Position = req.Name, req.Number, req.Position
+	p.Name, p.Number, p.Position, p.Birthday = req.Name, req.Number, req.Position, req.Birthday
 	if req.Status != "" {
 		p.Status = req.Status
 	}

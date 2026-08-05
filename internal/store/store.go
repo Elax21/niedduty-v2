@@ -26,6 +26,12 @@ func Open(dsn string) (*gorm.DB, error) {
 		&models.PlayerPenalty{},
 		&models.Event{},
 		&models.EventAttendance{},
+		&models.EventNote{},
+		&models.PenaltyLog{},
+		&models.Setting{},
+		&models.PushSubscription{},
+		&models.PushDelivery{},
+		&models.PushSetting{},
 	); err != nil {
 		return nil, err
 	}

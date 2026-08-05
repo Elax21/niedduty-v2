@@ -5,8 +5,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/alessandro/niedduty/internal/middleware"
 	"github.com/alessandro/niedduty/internal/models"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 const dateLayout = "2006-01-02"
@@ -76,7 +78,76 @@ func (a *API) ListEvents(c *gin.Context) {
 		}
 		return occs[i].StartTime < occs[j].StartTime
 	})
+	a.fillAttendance(c, occs)
+	a.fillNotes(occs)
 	c.JSON(http.StatusOK, occs)
+}
+
+// fillNotes hängt die Notizen einzelner Vorkommen an (z. B. Trainingsinhalt).
+func (a *API) fillNotes(occs []models.Occurrence) {
+	if len(occs) == 0 {
+		return
+	}
+	keys := make([]string, 0, len(occs))
+	for _, o := range occs {
+		keys = append(keys, o.EventKey)
+	}
+	var notes []models.EventNote
+	a.db.Where("event_key IN ?", keys).Find(&notes)
+	byKey := make(map[string]string, len(notes))
+	for _, n := range notes {
+		byKey[n.EventKey] = n.Text
+	}
+	for i := range occs {
+		occs[i].OccNote = byKey[occs[i].EventKey]
+	}
+}
+
+// fillAttendance ergänzt jedes Vorkommen um Zusagen/Absagen/Offen und die
+// eigene Rückmeldung — damit die Terminliste ohne Nachladen auskommt.
+func (a *API) fillAttendance(c *gin.Context, occs []models.Occurrence) {
+	if len(occs) == 0 {
+		return
+	}
+	keys := make([]string, 0, len(occs))
+	for _, o := range occs {
+		keys = append(keys, o.EventKey)
+	}
+	var atts []models.EventAttendance
+	a.db.Where("event_key IN ?", keys).Find(&atts)
+
+	var squadSize int64
+	a.db.Model(&models.Player{}).Count(&squadSize)
+
+	var me uuid.UUID
+	if u := middleware.CurrentUser(c); u != nil && u.PlayerID != nil {
+		me = *u.PlayerID
+	}
+
+	counts := map[string]*models.Occurrence{}
+	for i := range occs {
+		counts[occs[i].EventKey] = &occs[i]
+	}
+	for _, at := range atts {
+		o := counts[at.EventKey]
+		if o == nil {
+			continue
+		}
+		switch at.Status {
+		case "attending":
+			o.Attending++
+		case "declined":
+			o.Declined++
+		}
+		if me != uuid.Nil && at.PlayerID == me {
+			o.MyStatus = at.Status
+		}
+	}
+	for i := range occs {
+		if open := int(squadSize) - occs[i].Attending - occs[i].Declined; open > 0 {
+			occs[i].Open = open
+		}
+	}
 }
 
 // expandEvents erzeugt Vorkommen im Bereich [from, to].
@@ -167,5 +238,6 @@ func (a *API) UpdateEvent(c *gin.Context) {
 func (a *API) DeleteEvent(c *gin.Context) {
 	a.db.Delete(&models.Event{}, "id = ?", c.Param("id"))
 	a.db.Delete(&models.EventAttendance{}, "event_key = ? OR event_key LIKE ?", c.Param("id"), c.Param("id")+"\\_%")
+	a.db.Delete(&models.EventNote{}, "event_key = ? OR event_key LIKE ?", c.Param("id"), c.Param("id")+"\\_%")
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
