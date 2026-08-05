@@ -329,7 +329,13 @@ function treff(it: Item): string {
 	return it.isMatch && it.time ? meetingTime(it.time) : '';
 }
 function openSheet(it: Item) { sheetFor.value = it; }
-function fromSheet(fn: () => void) { sheetFor.value = null; fn(); }
+/** Sheet schließen und danach handeln. Der Termin wird vorher festgehalten —
+ *  nach dem Schließen ist sheetFor null und der Aufruf liefe ins Leere. */
+function fromSheet(fn: (it: Item) => void) {
+	const it = sheetFor.value;
+	sheetFor.value = null;
+	if (it) fn(it);
+}
 
 const noteFor = ref<Item | null>(null);
 const noteText = ref('');
@@ -625,14 +631,14 @@ useRefresh(load);
 			<ExternalLink :size="19" /> <span class="grow">Auf fussball.de</span>
 		</a>
 		<template v-if="canManage && !sheetFor.isMatch && sheetFor.occ">
-			<button class="lrow sheet-row" @click="fromSheet(() => openNote(sheetFor!))">
+			<button class="lrow sheet-row" @click="fromSheet((it) => openNote(it))">
 				<StickyNote :size="19" /> <span class="grow">Notiz</span>
 			</button>
-			<button class="lrow sheet-row" @click="fromSheet(() => openEdit(sheetFor!.occ!))">
+			<button class="lrow sheet-row" @click="fromSheet((it) => it.occ && openEdit(it.occ))">
 				<Pencil :size="19" /> <span class="grow">Bearbeiten</span>
 			</button>
 			<div class="chalk-divider" />
-			<button class="lrow sheet-row danger" @click="fromSheet(() => removeEvent(sheetFor!.occ!))">
+			<button class="lrow sheet-row danger" @click="fromSheet((it) => it.occ && removeEvent(it.occ))">
 				<Trash2 :size="19" /> <span class="grow">Löschen</span>
 			</button>
 		</template>
