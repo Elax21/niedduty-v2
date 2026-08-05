@@ -94,6 +94,23 @@ var matchesCache = &matchCache{}
 
 const matchesTTL = 10 * time.Minute
 
+// fillVenues lädt die Spielstätten der nächsten Spiele nach. Nur die ersten
+// paar — jede Adresse kostet einen eigenen Seitenabruf, und weiter voraus
+// interessiert der Platz noch niemanden. Fehler werden geschluckt: ohne
+// Adresse funktioniert alles andere weiter.
+func fillVenues(next []fussball.Match) {
+	const maxLookups = 4
+	for i := range next {
+		if i >= maxLookups || next[i].URL == "" {
+			return
+		}
+		if v, err := fussball.FetchVenue(next[i].URL); err == nil && v.Address != "" {
+			venue := v
+			next[i].Venue = &venue
+		}
+	}
+}
+
 // GetMatches liefert letzte + kommende Spiele (dekodiert), max. alle 10 Min neu.
 func (a *API) GetMatches(c *gin.Context) {
 	var club models.Club
@@ -101,9 +118,21 @@ func (a *API) GetMatches(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Verein nicht gefunden"})
 		return
 	}
-	if club.FussballMatchesId == "" {
-		c.JSON(http.StatusOK, &fussball.Matches{Previous: []fussball.Match{}, Next: []fussball.Match{}})
+	m, err := a.loadMatches(club)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "fussball.de nicht erreichbar"})
 		return
+	}
+	c.JSON(http.StatusOK, m)
+}
+
+// loadMatches holt die Spiele aus dem Cache oder frisch von fussball.de.
+// Nebeneffekt: die eigene fussball.de-Mannschafts-ID wird beim ersten
+// erfolgreichen Abruf erkannt und am Verein gespeichert (Basis für
+// Kaderstatistik und Gegner-Vergleich).
+func (a *API) loadMatches(club models.Club) (*fussball.Matches, error) {
+	if club.FussballMatchesId == "" {
+		return &fussball.Matches{Previous: []fussball.Match{}, Next: []fussball.Match{}}, nil
 	}
 
 	matchesCache.mu.Lock()
@@ -112,21 +141,41 @@ func (a *API) GetMatches(c *gin.Context) {
 	matchesCache.mu.Unlock()
 
 	if fresh {
-		c.JSON(http.StatusOK, cached)
-		return
+		return cached, nil
 	}
 
 	m, err := fussball.FetchMatches(club.FussballMatchesId, club.Name)
 	if err != nil {
 		if cached != nil { // im Fehlerfall lieber alte Daten als nichts
-			c.JSON(http.StatusOK, cached)
-			return
+			return cached, nil
 		}
-		c.JSON(http.StatusBadGateway, gin.H{"error": "fussball.de nicht erreichbar"})
-		return
+		return nil, err
 	}
+	fillVenues(m.Next)
+
 	matchesCache.mu.Lock()
 	matchesCache.data, matchesCache.at, matchesCache.id = m, time.Now(), club.FussballMatchesId
 	matchesCache.mu.Unlock()
-	c.JSON(http.StatusOK, m)
+
+	if club.FussballTeamId == "" {
+		if id := ownTeamID(m); id != "" {
+			a.db.Model(&models.Club{}).Where("id = 1").Update("fussball_team_id", id)
+		}
+	}
+	return m, nil
+}
+
+// ownTeamID sucht die dauerhafte Mannschafts-ID des eigenen Teams in den Spielen.
+func ownTeamID(m *fussball.Matches) string {
+	for _, list := range [][]fussball.Match{m.Next, m.Previous} {
+		for _, match := range list {
+			if match.Home.IsOwn && match.Home.TeamID != "" {
+				return match.Home.TeamID
+			}
+			if match.Guest.IsOwn && match.Guest.TeamID != "" {
+				return match.Guest.TeamID
+			}
+		}
+	}
+	return ""
 }

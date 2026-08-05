@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { api, apiError } from '../services/api';
+import { useRefresh } from '../lib/refresh';
 import { useAuthStore } from '../stores/auth';
 import { enterRows } from '../lib/motion';
 import { Pencil, Plus, Trash2, RefreshCw, CalendarClock } from 'lucide-vue-next';
@@ -26,8 +27,8 @@ async function loadTable() {
 	requestAnimationFrame(() => enterRows('.tbl-anim'));
 }
 
-async function loadMatches() {
-	if (matches.value) return;
+async function loadMatches(force = false) {
+	if (matches.value && !force) return;
 	matchesLoading.value = true;
 	try {
 		const { data } = await api.get<Matches>('/fussball/matches');
@@ -87,13 +88,44 @@ const diff = (e: LeagueEntry) => e.goalsFor - e.goalsAgainst;
 const nextMatches = computed(() => matches.value?.next ?? []);
 const prevMatches = computed(() => matches.value?.previous ?? []);
 
-onMounted(loadTable);
+// ── Eigene Position + Formkurve (aus den letzten Spielen abgeleitet) ──
+const ownIndex = computed(() => table.value.findIndex((e) => e.isOwn));
+const ownEntry = computed(() => (ownIndex.value < 0 ? null : table.value[ownIndex.value]));
+
+/** Letzte fünf gespielte Partien als S/U/N. */
+const ownForm = computed(() => {
+	const out: { result: 'S' | 'U' | 'N'; score: string; opponent: string }[] = [];
+	for (const m of prevMatches.value) {
+		if (!m.played || m.homeGoals === null || m.guestGoals === null) continue;
+		const home = m.home.isOwn;
+		if (!home && !m.guest.isOwn) continue;
+		const own = home ? m.homeGoals : m.guestGoals;
+		const other = home ? m.guestGoals : m.homeGoals;
+		out.push({
+			result: own > other ? 'S' : own < other ? 'N' : 'U',
+			score: `${own}:${other}`,
+			opponent: home ? m.guest.name : m.home.name
+		});
+		if (out.length === 5) break;
+	}
+	return out;
+});
+
+/** Jüngstes gespieltes Spiel — bekommt die Score-Tiles-Behandlung. */
+const lastResult = computed(() => prevMatches.value.find((m) => m.played) ?? null);
+
+useRefresh(() => Promise.all([loadTable(), loadMatches(true)]));
+
+onMounted(() => {
+	loadTable();
+	loadMatches();
+});
 </script>
 
 <template>
 	<div class="page-head">
 		<h1>Liga</h1>
-		<span class="sub">{{ auth.club?.liga }}</span>
+		<span class="sub-mono">{{ auth.club?.liga }}</span>
 	</div>
 
 	<div class="segmented">
@@ -105,6 +137,45 @@ onMounted(loadTable);
 
 	<!-- ── TABELLE (nativ, von fussball.de gesynct) ── -->
 	<template v-if="tab === 'tabelle'">
+		<!-- Signature: eigene Position groß, darunter Formkurve -->
+		<section v-if="ownEntry && !editing" class="pos-card" style="margin-bottom: 14px">
+			<div class="rank">{{ ownIndex + 1 }}.</div>
+			<div class="mid">
+				<div class="team">{{ ownEntry.teamName }}</div>
+				<div v-if="ownForm.length" class="formrow">
+					<span
+						v-for="(f, i) in ownForm"
+						:key="i"
+						class="formchip"
+						:class="f.result"
+						:title="`${f.score} gegen ${f.opponent}`"
+					>{{ f.result }}</span>
+					<span class="overline cap">Form</span>
+				</div>
+			</div>
+			<div class="pts">
+				<div class="n" style="color: var(--gold)">{{ ownEntry.points }}</div>
+				<div class="overline" style="margin-top: 4px">Pkt</div>
+			</div>
+		</section>
+
+		<!-- Letztes Ergebnis als Beleg mit Score-Tiles -->
+		<section v-if="lastResult && !editing" class="card" style="margin-bottom: 14px; background: var(--surface-inset)">
+			<div class="card-body">
+				<div class="overline" style="text-align: center">{{ lastResult.date }}</div>
+				<div class="score-tiles" style="margin: 12px 0 10px">
+					<span class="t">{{ lastResult.homeGoals }}</span>
+					<span class="sep">:</span>
+					<span class="t">{{ lastResult.guestGoals }}</span>
+				</div>
+				<div class="last-teams">
+					<span :class="{ own: lastResult.home.isOwn }">{{ lastResult.home.name }}</span>
+					<span class="dash">–</span>
+					<span :class="{ own: lastResult.guest.isOwn }">{{ lastResult.guest.name }}</span>
+				</div>
+			</div>
+		</section>
+
 		<div v-if="!editing" class="card">
 			<div class="card-head">
 				<h2>Tabelle</h2>
@@ -195,6 +266,17 @@ onMounted(loadTable);
 .edit-tbl td { padding: 4px 5px; }
 .edit-tbl .input { min-height: 36px; padding: 5px 7px; border-radius: 8px; }
 .num-in { width: 52px; font-family: var(--font-mono); text-align: center; }
+.last-teams {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	font-size: 13px;
+	color: var(--ink-2);
+	text-align: center;
+}
+.last-teams .own { color: var(--gold); font-weight: 600; }
+.last-teams .dash { color: var(--ink-3); }
 .spin { animation: spin 0.9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>

@@ -53,6 +53,10 @@ type MatchTeam struct {
 	Name    string `json:"name"`
 	LogoURL string `json:"logoUrl"`
 	IsOwn   bool   `json:"isOwn"`
+	// TeamID ist dauerhaft und *nicht* verschleiert — damit lassen sich
+	// Spielplan und Kader des Gegners über die klassischen Seiten holen.
+	TeamID string `json:"teamId"`
+	ClubID string `json:"clubId"`
 }
 
 type Match struct {
@@ -66,6 +70,9 @@ type Match struct {
 	HomeGoals  *int      `json:"homeGoals"`
 	GuestGoals *int      `json:"guestGoals"`
 	Played     bool      `json:"played"`
+	// Venue — Spielstätte, wird für kommende Spiele von der Spielseite
+	// nachgeladen (die Widget-Daten liefern sie nicht mit).
+	Venue *Venue `json:"venue,omitempty"`
 }
 
 type Matches struct {
@@ -317,8 +324,10 @@ type rawMatch struct {
 }
 
 type rawTeam struct {
-	Name        string `json:"name"`
-	ClubLogoURL string `json:"clubLogoURL"`
+	Name            string `json:"name"`
+	ClubLogoURL     string `json:"clubLogoURL"`
+	TeamPermanentID string `json:"teamPermanentId"`
+	ClubID          string `json:"clubId"`
 }
 
 func decodeMatches(dec *decoder, own string, raw []rawMatch) []Match {
@@ -342,8 +351,8 @@ func decodeMatches(dec *decoder, own string, raw []rawMatch) []Match {
 			ISODate:    isoDate(date),
 			Time:       dec.text(m.Kickoff.Time),
 			URL:        url,
-			Home:       MatchTeam{Name: home, LogoURL: m.HomeTeam.ClubLogoURL, IsOwn: own != "" && strings.Contains(normalize(home), own)},
-			Guest:      MatchTeam{Name: guest, LogoURL: m.GuestTeam.ClubLogoURL, IsOwn: own != "" && strings.Contains(normalize(guest), own)},
+			Home:       MatchTeam{Name: home, LogoURL: m.HomeTeam.ClubLogoURL, IsOwn: own != "" && strings.Contains(normalize(home), own), TeamID: m.HomeTeam.TeamPermanentID, ClubID: m.HomeTeam.ClubID},
+			Guest:      MatchTeam{Name: guest, LogoURL: m.GuestTeam.ClubLogoURL, IsOwn: own != "" && strings.Contains(normalize(guest), own), TeamID: m.GuestTeam.TeamPermanentID, ClubID: m.GuestTeam.ClubID},
 			HomeGoals:  hg,
 			GuestGoals: gg,
 			Played:     hg != nil && gg != nil,
@@ -359,6 +368,7 @@ func normalize(s string) string {
 const matchURLBase = "https://www.fussball.de/spiel/-/spiel/"
 
 var dateRe = regexp.MustCompile(`(\d{2})\.(\d{2})\.(\d{4})`)
+var timeRe = regexp.MustCompile(`(\d{1,2}:\d{2})`)
 
 // isoDate zieht aus "Sonntag, 16.08.2026" das "2026-08-16".
 func isoDate(s string) string {
