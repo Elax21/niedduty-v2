@@ -879,16 +879,18 @@ img { max-width: 100%; }
 .evcard .grow { flex: 1; min-width: 0; }
 .evcard .t { font-size: 16px; font-weight: 600; line-height: 1.2; }
 .evcard .m { font-size: 12.5px; color: rgba(247, 243, 231, 0.5); margin-top: 3px; }
-/* Zwei feste Zeilen: Zu-/Absage sind die breitesten Ziele der Karte, die
-   Werkzeuge treten darunter zurück. Bei einem Verwalter-Konto stehen bis zu
-   fünf Icons plus Zähler in der zweiten Zeile — die darf umbrechen, die
-   Primärzeile nie. */
-.evcard .actions { display: grid; gap: 8px; margin-top: 11px; }
-.evcard .actions .row-main { display: flex; gap: 8px; }
-.evcard .actions .row-main .rsvp.sm { flex: 1 1 0; min-width: 0; height: 40px; }
-.evcard .actions .row-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.evcard .actions .row-tools .btn.icon { flex: 0 0 auto; width: 40px; min-height: 40px; }
-.evcard .tally { margin-left: auto; font-family: var(--font-mono); font-size: 12.5px; }
+/* Anstoß | Treffpunkt — Zahlen mono, Einheiten zurückgenommen */
+.evcard .times { font-size: 12.5px; color: var(--ink-2); margin-top: 4px; }
+.evcard .times .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.evcard .times .unit { color: rgba(247, 243, 231, 0.42); }
+.evcard .times .pipe { color: rgba(244, 177, 37, 0.5); padding: 0 7px; }
+
+/* Zusage/Absage teilen die Breite, das Menü ist das einzige sekundäre Ziel —
+   alles Weitere liegt im Termin-Sheet. */
+.evcard .actions { display: flex; align-items: center; gap: 8px; margin-top: 11px; }
+.evcard .actions .rsvp.sm { flex: 1 1 0; min-width: 0; height: 40px; }
+.evcard .actions .btn.icon.more { flex: 0 0 auto; width: 40px; min-height: 40px; margin-left: auto; }
+.evcard .tally { margin-top: 9px; font-family: var(--font-mono); font-size: 12.5px; }
 
 /* Zusagen-Zähler (auch auf Start) */
 .count-yes { color: var(--gruen); }

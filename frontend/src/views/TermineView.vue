@@ -4,9 +4,10 @@ import { api, apiError } from '../services/api';
 import { useRefresh } from '../lib/refresh';
 import { useAuthStore } from '../stores/auth';
 import { enterRows } from '../lib/motion';
-import { Plus, Pencil, Trash2, Check, X, MapPin, Clock, CalendarPlus, CalendarDays, ExternalLink, Repeat, StickyNote, ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { Plus, Pencil, Trash2, Check, X, MapPin, CalendarDays, ExternalLink, Repeat, StickyNote, ChevronLeft, ChevronRight, MoreVertical } from 'lucide-vue-next';
 import AppModal from '../components/AppModal.vue';
 import VenueBar from '../components/VenueBar.vue';
+import { meetingTime } from '../lib/maps';
 import type { Attendance, Occurrence, Match, Matches, TrainingSchedule, Venue } from '../types';
 
 const auth = useAuthStore();
@@ -135,23 +136,6 @@ async function rsvp(it: Item, status: 'attending' | 'declined') {
 	} finally {
 		rsvpBusy.value = '';
 	}
-}
-
-function googleUrl(it: Item): string {
-	const base = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
-	const d = it.isoDate.replace(/-/g, '');
-	let dates: string;
-	if (it.time) {
-		const st = it.time.replace(':', '') + '00';
-		dates = `${d}T${st}/${d}T${st}`;
-	} else {
-		const next = new Date(it.isoDate + 'T12:00');
-		next.setDate(next.getDate() + 1);
-		dates = `${d}/${next.toISOString().slice(0, 10).replace(/-/g, '')}`;
-	}
-	const title = it.isMatch ? `${typeLabels[it.type]}: ${it.title}` : it.title;
-	const p = new URLSearchParams({ text: title, dates, location: it.location || '', details: it.notes || '' });
-	return `${base}&${p.toString()}`;
 }
 
 function weekday(d: string) {
@@ -336,6 +320,17 @@ async function saveSchedule() {
 }
 
 // ── Notiz an einer einzelnen Einheit ────────────────────────────
+// Termin-Sheet: alles Sekundäre liegt dahinter, damit auf der Karte genau ein
+// zusätzliches Ziel steht statt fünf.
+const sheetFor = ref<Item | null>(null);
+
+/** Treffpunkt — nur bei Spielen, 1:30 vor Anpfiff. */
+function treff(it: Item): string {
+	return it.isMatch && it.time ? meetingTime(it.time) : '';
+}
+function openSheet(it: Item) { sheetFor.value = it; }
+function fromSheet(fn: () => void) { sheetFor.value = null; fn(); }
+
 const noteFor = ref<Item | null>(null);
 const noteText = ref('');
 const noteBusy = ref(false);
@@ -365,9 +360,6 @@ useRefresh(load);
 <template>
 	<div class="page-head">
 		<h1>Termine</h1>
-		<a v-if="auth.club?.googleCalendarUrl" :href="auth.club.googleCalendarUrl" target="_blank" rel="noopener" class="sub-mono">
-			Google ›
-		</a>
 	</div>
 
 	<div class="segmented">
@@ -444,6 +436,7 @@ useRefresh(load);
 				:key="it.key"
 				class="evcard ev-anim"
 				:class="[it.type, { heute: it.isoDate === today }]"
+				@click="openSheet(it)"
 			>
 				<div class="datebox">
 					<div class="wd">{{ weekday(it.isoDate) }}</div>
@@ -459,43 +452,30 @@ useRefresh(load);
 						<template v-if="it.isMatch">{{ it.side === 'Heim' ? 'vs' : 'bei' }} {{ it.title }}</template>
 						<template v-else>{{ it.title }}</template>
 					</div>
-					<div class="m">
-						<template v-if="it.time"><Clock :size="12" style="vertical-align: -2px" /> {{ it.time }} Uhr</template>
-						<template v-if="it.side"> · {{ it.side }}</template>
-						<template v-if="it.location"> · <MapPin :size="12" style="vertical-align: -2px" /> {{ it.location }}</template>
+					<div class="times">
+						<template v-if="it.time"><span class="mono">{{ it.time }}</span> <span class="unit">Uhr</span></template>
+						<template v-if="treff(it)"><span class="pipe">|</span><span class="mono">{{ treff(it) }}</span> <span class="unit">Treff</span></template>
+						<template v-if="!it.time && it.location"><span class="unit">{{ it.location }}</span></template>
 					</div>
-					<p v-if="it.notes" class="m">{{ it.notes }}</p>
 					<p v-if="it.occNote" class="occnote"><StickyNote :size="12" /> {{ it.occNote }}</p>
-					<VenueBar
-						v-if="it.isMatch && !it.result && (it.venue || it.time)"
-						:venue="it.venue"
-						:kickoff="it.time"
-						style="margin-top: 9px"
-					/>
 
-					<div class="actions">
-						<div v-if="myPlayerId && it.isoDate >= today" class="row-main">
+					<div class="actions" @click.stop>
+						<template v-if="myPlayerId && it.isoDate >= today">
 							<button class="rsvp yes sm" :class="{ on: myStatus(it) === 'attending' }" :disabled="rsvpBusy === it.key" @click="rsvp(it, 'attending')">
 								<Check :size="14" /> Zusage
 							</button>
 							<button class="rsvp no sm" :class="{ on: myStatus(it) === 'declined' }" :disabled="rsvpBusy === it.key" @click="rsvp(it, 'declined')">
 								<X :size="14" /> Absage
 							</button>
-						</div>
-						<div class="row-tools">
-							<a v-if="it.isMatch && it.url" :href="it.url" target="_blank" rel="noopener" class="btn sm icon ghost" aria-label="Auf fussball.de öffnen"><ExternalLink :size="14" /></a>
-							<a :href="googleUrl(it)" target="_blank" rel="noopener" class="btn sm icon ghost" aria-label="Zu Google Kalender"><CalendarPlus :size="14" /></a>
-							<template v-if="canManage && !it.isMatch && it.occ">
-								<button class="btn sm icon ghost" aria-label="Notiz zu diesem Termin" @click="openNote(it)"><StickyNote :size="13" /></button>
-								<button class="btn sm icon ghost" aria-label="Bearbeiten" @click="openEdit(it.occ)"><Pencil :size="13" /></button>
-								<button class="btn sm icon danger" aria-label="Löschen" @click="removeEvent(it.occ)"><Trash2 :size="13" /></button>
-							</template>
-							<span class="tally">
-								<span class="count-yes">{{ counts(it).yes }}</span>
-								<span class="count-open"> / </span>
-								<span class="count-no">{{ counts(it).no }}</span>
-							</span>
-						</div>
+						</template>
+						<button class="btn sm icon ghost more" aria-label="Mehr zum Termin" @click="openSheet(it)">
+							<MoreVertical :size="18" />
+						</button>
+					</div>
+					<div class="tally">
+						<span class="count-yes">{{ counts(it).yes }}</span>
+						<span class="count-open"> / </span>
+						<span class="count-no">{{ counts(it).no }}</span>
 					</div>
 				</div>
 			</article>
@@ -615,6 +595,49 @@ useRefresh(load);
 		</form>
 	</AppModal>
 
+	<!-- Termin-Sheet: Anfahrt und Verwaltung, damit die Karte schlank bleibt -->
+	<AppModal
+		v-if="sheetFor"
+		:title="sheetFor.isMatch ? (sheetFor.side === 'Heim' ? 'vs ' : 'bei ') + sheetFor.title : sheetFor.title"
+		@close="sheetFor = null"
+	>
+		<p class="sheet-when">
+			{{ new Date(sheetFor.isoDate + 'T12:00').toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' }) }}
+			<template v-if="sheetFor.time"> · {{ sheetFor.time }} Uhr</template>
+		</p>
+
+		<VenueBar
+			v-if="sheetFor.isMatch && !sheetFor.result && (sheetFor.venue || sheetFor.time)"
+			:venue="sheetFor.venue"
+			:kickoff="sheetFor.time"
+			style="margin-bottom: 6px"
+		/>
+		<p v-if="sheetFor.location && !sheetFor.isMatch" class="sheet-when"><MapPin :size="13" /> {{ sheetFor.location }}</p>
+		<p v-if="sheetFor.notes" class="sheet-when">{{ sheetFor.notes }}</p>
+
+		<a
+			v-if="sheetFor.isMatch && sheetFor.url"
+			:href="sheetFor.url"
+			target="_blank"
+			rel="noopener"
+			class="lrow sheet-row"
+		>
+			<ExternalLink :size="19" /> <span class="grow">Auf fussball.de</span>
+		</a>
+		<template v-if="canManage && !sheetFor.isMatch && sheetFor.occ">
+			<button class="lrow sheet-row" @click="fromSheet(() => openNote(sheetFor!))">
+				<StickyNote :size="19" /> <span class="grow">Notiz</span>
+			</button>
+			<button class="lrow sheet-row" @click="fromSheet(() => openEdit(sheetFor!.occ!))">
+				<Pencil :size="19" /> <span class="grow">Bearbeiten</span>
+			</button>
+			<div class="chalk-divider" />
+			<button class="lrow sheet-row danger" @click="fromSheet(() => removeEvent(sheetFor!.occ!))">
+				<Trash2 :size="19" /> <span class="grow">Löschen</span>
+			</button>
+		</template>
+	</AppModal>
+
 	<!-- Notiz an einer einzelnen Einheit -->
 	<AppModal v-if="noteFor" title="Notiz zum Termin" @close="noteFor = null">
 		<form @submit.prevent="saveNote">
@@ -668,6 +691,37 @@ useRefresh(load);
 	color: var(--gold-soft);
 }
 .occnote :deep(svg) { flex-shrink: 0; }
+
+/* ── Termin-Sheet ── */
+.evcard { cursor: pointer; }
+.sheet-when {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+	font-size: 13px;
+	line-height: 1.45;
+	color: var(--ink-2);
+	margin-bottom: 12px;
+}
+.sheet-when :deep(svg) { color: var(--gold); flex-shrink: 0; }
+.sheet-row {
+	width: 100%;
+	min-height: 52px;
+	gap: 13px;
+	padding: 13px 6px;
+	border-bottom: none;
+	font-family: var(--font-display);
+	font-size: 16px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	color: var(--ink);
+	border-radius: 11px;
+	transition: background var(--t-fast);
+}
+.sheet-row:hover { background: var(--surface-3); }
+.sheet-row :deep(svg) { color: var(--gold); flex-shrink: 0; }
+.sheet-row.danger, .sheet-row.danger :deep(svg) { color: var(--bad); }
 
 /* ── Kalender ── */
 .calbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
