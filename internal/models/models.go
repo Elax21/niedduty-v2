@@ -243,6 +243,7 @@ type Occurrence struct {
 	Declined  int    `json:"declined"`
 	Open      int    `json:"open"`
 	MyStatus  string `json:"myStatus"` // "", "attending", "declined"
+	MyReason  string `json:"myReason"`
 }
 
 // Setting — schlichter Schlüssel/Wert-Speicher für Dinge, die den Neustart

@@ -4,11 +4,11 @@ import { api, apiError } from '../services/api';
 import { useRefresh } from '../lib/refresh';
 import { useAuthStore } from '../stores/auth';
 import { enterRows } from '../lib/motion';
-import { Plus, Pencil, Trash2, Check, X, MapPin, CalendarDays, ExternalLink, Repeat, StickyNote, ChevronLeft, ChevronRight, MoreVertical } from 'lucide-vue-next';
+import { Plus, Pencil, Trash2, Check, X, MapPin, CalendarDays, ExternalLink, Repeat, StickyNote, ChevronLeft, ChevronRight, MoreVertical, MessageSquare } from 'lucide-vue-next';
 import AppModal from '../components/AppModal.vue';
 import VenueBar from '../components/VenueBar.vue';
 import { meetingTime } from '../lib/maps';
-import type { Attendance, Occurrence, Match, Matches, TrainingSchedule, Venue } from '../types';
+import type { Attendance, Occurrence, Match, Matches, TrainingSchedule, Venue, Player } from '../types';
 
 const auth = useAuthStore();
 const scope = ref<'kommend' | 'vergangen'>('kommend');
@@ -18,6 +18,8 @@ const matchList = ref<Match[]>([]);
 const matchAttendance = ref<Record<string, Attendance[]>>({});
 const error = ref('');
 const rsvpBusy = ref('');
+/** id → Name, nur für die Rückmeldungs-Liste im Sheet. */
+const players = ref<Record<string, string>>({});
 
 const today = new Date().toISOString().slice(0, 10);
 const canManage = computed(() => auth.can('termine'));
@@ -44,11 +46,12 @@ interface Item {
 	result?: string;    // "3:1" bei gespielten Spielen
 	url?: string;       // fussball.de-Spielseite
 	venue?: Venue;      // Spielstätte (nur fussball.de-Spiele)
+	myReason?: string;  // eigene Begründung zur Zu-/Absage
 	occ?: Occurrence;   // Original (nur eigene Termine, für Bearbeiten)
 }
 
 function eventItem(e: Occurrence): Item {
-	return { key: e.eventKey, isoDate: e.occDate, time: e.startTime, type: e.type, title: e.title, location: e.location, notes: e.notes, occNote: e.occNote, isMatch: false, occ: e };
+	return { key: e.eventKey, isoDate: e.occDate, time: e.startTime, type: e.type, title: e.title, location: e.location, notes: e.notes, occNote: e.occNote, myReason: e.myReason, isMatch: false, occ: e };
 }
 function matchItem(m: Match): Item {
 	const opp = m.home.isOwn ? m.guest.name : m.home.name;
@@ -328,13 +331,69 @@ const sheetFor = ref<Item | null>(null);
 function treff(it: Item): string {
 	return it.isMatch && it.time ? meetingTime(it.time) : '';
 }
-function openSheet(it: Item) { sheetFor.value = it; }
+const canSeeAttendance = computed(() => auth.can('beteiligung'));
+const sheetAttendance = ref<Attendance[]>([]);
+
+function openSheet(it: Item) {
+	sheetFor.value = it;
+	sheetAttendance.value = [];
+	if (!canSeeAttendance.value) return;
+	api.get<Attendance[]>('/attendance', { params: { eventKey: it.key } })
+		.then((r) => { sheetAttendance.value = r.data; })
+		.catch(() => {});
+}
+
+/** Namen je Status, für die Liste im Sheet. */
+function sheetNames(status: 'attending' | 'declined') {
+	return sheetAttendance.value
+		.filter((a) => a.status === status)
+		.map((a) => ({
+			name: players.value[a.playerId] ?? 'Unbekannt',
+			reason: a.reason
+		}));
+}
 /** Sheet schließen und danach handeln. Der Termin wird vorher festgehalten —
  *  nach dem Schließen ist sheetFor null und der Aufruf liefe ins Leere. */
 function fromSheet(fn: (it: Item) => void) {
 	const it = sheetFor.value;
 	sheetFor.value = null;
 	if (it) fn(it);
+}
+
+// ── Begründung zur Rückmeldung ──────────────────────────────────
+// Optional: nach einer Absage wird direkt gefragt, sonst über das Stift-Symbol.
+const reasonFor = ref<Item | null>(null);
+const reasonText = ref('');
+const reasonBusy = ref(false);
+
+function openReason(it: Item) {
+	reasonFor.value = it;
+	reasonText.value = it.myReason ?? myReasonOf(it);
+}
+/** Bei fussball.de-Spielen steckt der Grund in der nachgeladenen Liste. */
+function myReasonOf(it: Item): string {
+	if (!myPlayerId.value) return '';
+	return matchAttendance.value[it.key]?.find((a) => a.playerId === myPlayerId.value)?.reason ?? '';
+}
+async function saveReason() {
+	const it = reasonFor.value;
+	if (!it || !myPlayerId.value) return;
+	reasonBusy.value = true;
+	try {
+		await api.put('/attendance', {
+			eventKey: it.key,
+			playerId: myPlayerId.value,
+			status: myStatus(it) || 'declined',
+			reason: reasonText.value.trim()
+		});
+		reasonFor.value = null;
+		if (it.occ) await load();
+		else await loadMatchAttendance(it.key);
+	} catch (e) {
+		error.value = apiError(e);
+	} finally {
+		reasonBusy.value = false;
+	}
 }
 
 const noteFor = ref<Item | null>(null);
@@ -359,6 +418,17 @@ async function saveNote() {
 	}
 }
 
+onMounted(async () => {
+	// Namen einmal holen; ohne das Recht liefert die API ohnehin nichts Fremdes.
+	if (auth.can('beteiligung')) {
+		try {
+			const { data } = await api.get<Player[]>('/players');
+			players.value = Object.fromEntries(data.map((p) => [p.id, p.name]));
+		} catch {
+			/* ohne Namen bleibt die Liste eben leer */
+		}
+	}
+});
 onMounted(load);
 useRefresh(load);
 </script>
@@ -621,6 +691,32 @@ useRefresh(load);
 		<p v-if="sheetFor.location && !sheetFor.isMatch" class="sheet-when"><MapPin :size="13" /> {{ sheetFor.location }}</p>
 		<p v-if="sheetFor.notes" class="sheet-when">{{ sheetFor.notes }}</p>
 
+		<button v-if="myPlayerId && myStatus(sheetFor)" class="lrow sheet-row" @click="fromSheet((it) => openReason(it))">
+			<MessageSquare :size="19" />
+			<span class="grow">{{ (sheetFor.myReason || myReasonOf(sheetFor)) ? 'Begründung ändern' : 'Begründung hinzufügen' }}</span>
+		</button>
+
+		<template v-if="canSeeAttendance && sheetAttendance.length">
+			<div class="chalk-divider" />
+			<div class="rsvp-list">
+				<div class="rsvp-group">
+					<div class="rsvp-head count-yes">Zusagen ({{ sheetNames('attending').length }})</div>
+					<p v-for="(v, i) in sheetNames('attending')" :key="'y' + i" class="rsvp-name">
+						{{ v.name }}<span v-if="v.reason" class="grund"> — {{ v.reason }}</span>
+					</p>
+					<p v-if="!sheetNames('attending').length" class="rsvp-name leer">—</p>
+				</div>
+				<div class="rsvp-group">
+					<div class="rsvp-head count-no">Absagen ({{ sheetNames('declined').length }})</div>
+					<p v-for="(v, i) in sheetNames('declined')" :key="'n' + i" class="rsvp-name">
+						{{ v.name }}<span v-if="v.reason" class="grund"> — {{ v.reason }}</span>
+					</p>
+					<p v-if="!sheetNames('declined').length" class="rsvp-name leer">—</p>
+				</div>
+			</div>
+			<div class="chalk-divider" />
+		</template>
+
 		<a
 			v-if="sheetFor.isMatch && sheetFor.url"
 			:href="sheetFor.url"
@@ -642,6 +738,21 @@ useRefresh(load);
 				<Trash2 :size="19" /> <span class="grow">Löschen</span>
 			</button>
 		</template>
+	</AppModal>
+
+	<!-- Begründung zur eigenen Zu-/Absage -->
+	<AppModal v-if="reasonFor" title="Begründung" @close="reasonFor = null">
+		<form @submit.prevent="saveReason">
+			<p class="hint">
+				Freiwillig. Der Mannschaftsrat sieht sie an deiner Rückmeldung — hilft beim Planen.
+			</p>
+			<div class="field">
+				<label for="rsvp-reason">Grund</label>
+				<textarea id="rsvp-reason" v-model="reasonText" rows="3" maxlength="200" placeholder="z. B. Spätschicht, Urlaub, angeschlagen" />
+			</div>
+			<button class="btn primary block" style="margin-top: 6px" :disabled="reasonBusy">Speichern</button>
+			<button type="button" class="btn ghost block" style="margin-top: 8px" @click="reasonFor = null">Ohne Grund</button>
+		</form>
 	</AppModal>
 
 	<!-- Notiz an einer einzelnen Einheit -->
@@ -728,6 +839,18 @@ useRefresh(load);
 .sheet-row:hover { background: var(--surface-3); }
 .sheet-row :deep(svg) { color: var(--gold); flex-shrink: 0; }
 .sheet-row.danger, .sheet-row.danger :deep(svg) { color: var(--bad); }
+
+.rsvp-list { display: grid; gap: 14px; padding: 4px 0; }
+.rsvp-head {
+	font-family: var(--font-display);
+	font-size: 12.5px;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	margin-bottom: 5px;
+}
+.rsvp-name { font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+.rsvp-name .grund { color: var(--ink-3); }
+.rsvp-name.leer { color: var(--ink-3); }
 
 /* ── Kalender ── */
 .calbar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }

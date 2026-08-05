@@ -121,6 +121,7 @@ export interface Occurrence {
 	declined: number;
 	open: number;
 	myStatus: '' | 'attending' | 'declined';
+	myReason: string;
 }
 
 /** Ein Eintrag im fälschungssicheren Kassen-Protokoll. */

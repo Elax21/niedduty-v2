@@ -43,6 +43,8 @@ export const helpChapters: HelpChapter[] = [
 		lead: 'Training, Spiele und Mannschaftsabende an einer Stelle.',
 		points: [
 			'Zusage oder Absage mit einem Tipp — die Zähler daneben zeigen den Stand.',
+			'Nach einer Absage fragt die App nach einem Grund. Freiwillig, hilft aber beim Planen.',
+			'Wer namentlich zu- oder abgesagt hat, sieht nur der Mannschaftsrat. Alle anderen sehen nur die Zahlen.',
 			'Bei Spielen stehen Treffpunkt (1:30 vor Anpfiff), Platz und Navi-Knöpfe für Google und Apple Karten.',
 			'Der Reiter „Kalender" zeigt den ganzen Monat, du kannst beliebig weit vorspulen.',
 			'Tippen auf einen Termin öffnet die Details: Anfahrt, Notiz, Bearbeiten und Löschen.'

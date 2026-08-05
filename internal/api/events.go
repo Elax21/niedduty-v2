@@ -140,7 +140,7 @@ func (a *API) fillAttendance(c *gin.Context, occs []models.Occurrence) {
 			o.Declined++
 		}
 		if me != uuid.Nil && at.PlayerID == me {
-			o.MyStatus = at.Status
+			o.MyStatus, o.MyReason = at.Status, at.Reason
 		}
 	}
 	for i := range occs {

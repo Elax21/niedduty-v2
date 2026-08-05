@@ -11,15 +11,28 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// ListAttendance — alle Rückmeldungen eines Termin-Vorkommens.
+// ListAttendance — Rückmeldungen eines Termin-Vorkommens.
+//
+// Wer zu- oder abgesagt hat, sieht nur der Mannschaftsrat (Recht
+// "beteiligung"). Alle anderen bekommen ausschließlich ihre eigene
+// Rückmeldung; die reinen Zähler stecken ohnehin schon am Vorkommen.
 func (a *API) ListAttendance(c *gin.Context) {
 	key := c.Query("eventKey")
 	if key == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "eventKey fehlt"})
 		return
 	}
+	user := middleware.CurrentUser(c)
+	q := a.db.Where("event_key = ?", key)
+	if !user.Can(models.PermBeteiligung) {
+		if user.PlayerID == nil {
+			c.JSON(http.StatusOK, []models.EventAttendance{})
+			return
+		}
+		q = q.Where("player_id = ?", *user.PlayerID)
+	}
 	var list []models.EventAttendance
-	a.db.Where("event_key = ?", key).Find(&list)
+	q.Find(&list)
 	c.JSON(http.StatusOK, list)
 }
 
@@ -59,14 +72,14 @@ func (a *API) SetAttendance(c *gin.Context) {
 }
 
 type playerStats struct {
-	PlayerID  uuid.UUID `json:"playerId"`
-	Name      string    `json:"name"`
-	Number    *int      `json:"number"`
-	Attended  int       `json:"attended"`
-	Declined  int       `json:"declined"`
-	NoAnswer  int       `json:"noAnswer"`
-	Total     int       `json:"total"`
-	QuotePct  int       `json:"quotePct"`
+	PlayerID uuid.UUID `json:"playerId"`
+	Name     string    `json:"name"`
+	Number   *int      `json:"number"`
+	Attended int       `json:"attended"`
+	Declined int       `json:"declined"`
+	NoAnswer int       `json:"noAnswer"`
+	Total    int       `json:"total"`
+	QuotePct int       `json:"quotePct"`
 }
 
 // AttendanceStats — Trainingsbeteiligung pro Spieler über einen Zeitraum.
