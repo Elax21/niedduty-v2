@@ -38,6 +38,7 @@ func (a *API) Routes(r *gin.Engine) {
 	auth := r.Group("/api", middleware.Auth(a.db))
 	{
 		auth.GET("/auth/me", a.Me)
+		auth.PUT("/auth/me/tutorial", a.SetTutorialDone)
 		auth.GET("/club", a.GetClub)
 		auth.GET("/players", a.ListPlayers)
 		auth.GET("/table", a.GetTable)

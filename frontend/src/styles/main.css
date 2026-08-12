@@ -1045,3 +1045,6 @@ img { max-width: 100%; }
 	*, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 	.modal { animation: none; }
 }
+
+/* Rundgang läuft: nichts wegscrollen, sonst wandert die Markierung. */
+body.tour-active { overflow: hidden; }

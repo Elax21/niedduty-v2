@@ -1,18 +1,16 @@
 <script setup lang="ts">
-// Zwei Auftritte, ein Inhalt (lib/help.ts):
-//   mode="tour"  — Rundgang nach der Registrierung, Schritt für Schritt.
-//   mode="hilfe" — Nachschlagewerk aus dem Menü, alles untereinander.
-import { ref, computed } from 'vue';
+// Nachschlagewerk aus dem Menü — derselbe Inhalt wie im geführten Rundgang
+// (lib/help.ts), hier aber alles untereinander zum Blättern.
+import { computed } from 'vue';
 import {
 	Home, Trophy, CalendarDays, Wallet, Users, Settings, Bell,
-	BarChart3, Repeat, ShieldCheck, Vote, ChevronLeft, ChevronRight, Check
+	BarChart3, Repeat, ShieldCheck, Vote, Check, Compass
 } from 'lucide-vue-next';
 import { useAuthStore } from '../stores/auth';
 import { helpChapters } from '../lib/help';
 import AppModal from './AppModal.vue';
 
-const props = defineProps<{ mode: 'tour' | 'hilfe' }>();
-const emit = defineEmits<{ close: [] }>();
+const emit = defineEmits<{ close: []; restart: [] }>();
 
 const auth = useAuthStore();
 
@@ -28,81 +26,27 @@ const chapters = computed(() =>
 		return auth.can(ch.perm);
 	})
 );
-
-const step = ref(0);
-const current = computed(() => chapters.value[step.value]);
-const isLast = computed(() => step.value >= chapters.value.length - 1);
-
-function next() {
-	if (isLast.value) emit('close');
-	else step.value++;
-}
-function back() {
-	if (step.value > 0) step.value--;
-}
 </script>
 
 <template>
-	<AppModal :title="props.mode === 'tour' ? 'Willkommen in der Kabine' : 'Hilfe'" @close="emit('close')">
-		<!-- Rundgang: ein Kapitel nach dem anderen -->
-		<template v-if="props.mode === 'tour'">
-			<div v-if="current" class="chapter">
-				<div class="badge"><component :is="icons[current.icon]" :size="22" /></div>
-				<h3>{{ current.title }}</h3>
-				<p class="lead">{{ current.lead }}</p>
-				<ul>
-					<li v-for="(pt, i) in current.points" :key="i">
-						<Check :size="14" /><span>{{ pt }}</span>
-					</li>
-				</ul>
-			</div>
+	<AppModal title="Hilfe" @close="emit('close')">
+		<button type="button" class="btn gold block restart" @click="emit('restart')">
+			<Compass :size="15" /> Rundgang neu starten
+		</button>
 
-			<div class="dots" aria-hidden="true">
-				<i v-for="(ch, i) in chapters" :key="ch.key" :class="{ on: i === step, done: i < step }" />
-			</div>
-
-			<div class="nav">
-				<button type="button" class="btn" :disabled="step === 0" @click="back">
-					<ChevronLeft :size="15" /> Zurück
-				</button>
-				<button type="button" class="btn gold grow" @click="next">
-					{{ isLast ? 'Los geht’s' : 'Weiter' }}
-					<ChevronRight v-if="!isLast" :size="15" />
-				</button>
-			</div>
-			<button type="button" class="btn ghost block skip" @click="emit('close')">Überspringen</button>
-		</template>
-
-		<!-- Hilfe: alles auf einmal zum Nachschlagen -->
-		<template v-else>
-			<section v-for="ch in chapters" :key="ch.key" class="entry">
-				<h3><component :is="icons[ch.icon]" :size="17" /> {{ ch.title }}</h3>
-				<p class="lead">{{ ch.lead }}</p>
-				<ul>
-					<li v-for="(pt, i) in ch.points" :key="i">
-						<Check :size="14" /><span>{{ pt }}</span>
-					</li>
-				</ul>
-			</section>
-		</template>
+		<section v-for="ch in chapters" :key="ch.key" class="entry">
+			<h3><component :is="icons[ch.icon]" :size="17" /> {{ ch.title }}</h3>
+			<p class="lead">{{ ch.lead }}</p>
+			<ul>
+				<li v-for="(pt, i) in ch.points" :key="i">
+					<Check :size="14" /><span>{{ pt }}</span>
+				</li>
+			</ul>
+		</section>
 	</AppModal>
 </template>
 
 <style scoped>
-.chapter { text-align: center; }
-.badge {
-	width: 54px;
-	height: 54px;
-	margin: 2px auto 12px;
-	display: grid;
-	place-items: center;
-	border-radius: 16px;
-	background: var(--surface-2);
-	border: 1px solid var(--line-2);
-	box-shadow: var(--shadow-gold);
-}
-.badge :deep(svg) { color: var(--gold); }
-
 h3 {
 	display: flex;
 	align-items: center;
@@ -121,7 +65,6 @@ h3 {
 .entry:last-of-type { border-bottom: none; }
 
 .lead { margin: 7px 0 12px; font-size: 13.5px; line-height: 1.5; color: var(--ink-2); }
-.chapter .lead { text-align: center; }
 
 ul { display: grid; gap: 9px; text-align: left; }
 li {
@@ -133,12 +76,5 @@ li {
 }
 li :deep(svg) { color: var(--gold); flex-shrink: 0; margin-top: 2px; }
 
-.dots { display: flex; justify-content: center; gap: 6px; margin: 18px 0 14px; }
-.dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--surface-4); }
-.dots i.done { background: var(--gold-deep); }
-.dots i.on { background: var(--gold); width: 18px; border-radius: 3px; }
-
-.nav { display: flex; gap: 9px; }
-.nav .grow { flex: 1; }
-.skip { margin-top: 9px; }
+.restart { margin-bottom: 4px; justify-content: center; }
 </style>

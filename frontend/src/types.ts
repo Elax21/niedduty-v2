@@ -6,6 +6,7 @@ export interface User {
 	role: 'ADMIN' | 'MEMBER';
 	permissions: string[];
 	playerId: string | null;
+	tutorialDone: boolean;
 }
 
 export interface MatchTeam {

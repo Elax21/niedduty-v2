@@ -70,3 +70,26 @@ func (a *API) Logout(c *gin.Context) {
 func (a *API) Me(c *gin.Context) {
 	c.JSON(http.StatusOK, middleware.CurrentUser(c))
 }
+
+// SetTutorialDone merkt am eigenen Konto, dass der Rundgang durch ist.
+// Gilt immer nur für die eigene Session — es gibt bewusst keine User-ID im
+// Request, damit niemand an fremden Konten schrauben kann. `done` erlaubt das
+// Zurücksetzen, um den Rundgang noch einmal zu starten.
+func (a *API) SetTutorialDone(c *gin.Context) {
+	var req struct {
+		Done *bool `json:"done"`
+	}
+	_ = c.ShouldBindJSON(&req) // leerer Body = fertig
+	done := true
+	if req.Done != nil {
+		done = *req.Done
+	}
+	user := middleware.CurrentUser(c)
+	if err := a.db.Model(&models.User{}).Where("id = ?", user.ID).
+		Update("tutorial_done", done).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Konnte nicht gespeichert werden"})
+		return
+	}
+	user.TutorialDone = done
+	c.JSON(http.StatusOK, gin.H{"tutorialDone": done})
+}

@@ -53,10 +53,20 @@ export const useAuthStore = defineStore('auth', () => {
 		club.value = res.data;
 	}
 
+	/** Rundgang abgeschlossen (oder erneut fällig) — Merker hängt am Konto. */
+	async function setTutorialDone(done: boolean) {
+		if (user.value) user.value.tutorialDone = done;
+		try {
+			await api.put('/auth/me/tutorial', { done });
+		} catch {
+			/* Nicht gespeichert? Dann kommt der Rundgang beim nächsten Start erneut. */
+		}
+	}
+
 	async function logout() {
 		await api.post('/auth/logout');
 		user.value = null;
 	}
 
-	return { user, club, loaded, isAdmin, can, fetchMe, login, register, logout };
+	return { user, club, loaded, isAdmin, can, fetchMe, login, register, logout, setTutorialDone };
 });

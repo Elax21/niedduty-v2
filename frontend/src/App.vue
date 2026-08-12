@@ -8,6 +8,7 @@ import { refreshAll, refreshing, watchVersion } from './lib/refresh';
 import InstallHint from './components/InstallHint.vue';
 import PushSettingsSheet from './components/PushSettingsSheet.vue';
 import TourSheet from './components/TourSheet.vue';
+import TourGuide from './components/TourGuide.vue';
 import {
 	Home, Trophy, CalendarDays, Wallet,
 	Users, Settings, LogOut, MoreVertical, X,
@@ -52,22 +53,33 @@ function showInstall() {
 }
 
 // ── Erklärungen ─────────────────────────────────────────────────
-// Der Rundgang kommt einmal, danach liegt derselbe Inhalt als Hilfe im Menü.
-const TOUR_KEY = 'ndt_tour_seen';
+// Beim ersten Einloggen läuft der geführte Rundgang durch die echte
+// Bedienung; derselbe Inhalt liegt danach als Hilfe im Menü. Der Merker hängt
+// am Konto (`user.tutorialDone`), nicht am Gerät.
 const showPushSettings = ref(false);
-const tourMode = ref<'tour' | 'hilfe' | null>(null);
+const tourMode = ref<'hilfe' | null>(null);
+const guideOn = ref(false);
 
-onMounted(() => {
-	if (!auth.user) return;
-	try {
-		if (localStorage.getItem(TOUR_KEY) !== '1') {
-			localStorage.setItem(TOUR_KEY, '1');
-			setTimeout(() => (tourMode.value = 'tour'), 700);
-		}
-	} catch {
-		/* privater Modus — dann eben ohne Rundgang */
-	}
-});
+watch(
+	() => auth.user?.id,
+	(id) => {
+		if (!id || auth.user?.tutorialDone) return;
+		setTimeout(() => {
+			if (auth.user && !auth.user.tutorialDone) guideOn.value = true;
+		}, 600);
+	},
+	{ immediate: true }
+);
+
+function endGuide() {
+	guideOn.value = false;
+	auth.setTutorialDone(true);
+}
+function restartGuide() {
+	tourMode.value = null;
+	menuOpen.value = false;
+	setTimeout(() => (guideOn.value = true), 250);
+}
 
 function openHelp() {
 	menuOpen.value = false;
@@ -126,7 +138,7 @@ function go(to: string) {
 			>
 				<RefreshCw :size="18" />
 			</button>
-			<button class="bar-btn" aria-label="Menü" @click="menuOpen = true">
+			<button class="bar-btn" data-tour="menu" aria-label="Menü" @click="menuOpen = true">
 				<MoreVertical :size="20" />
 			</button>
 		</header>
@@ -142,6 +154,7 @@ function go(to: string) {
 				v-for="t in tabs"
 				:key="t.to"
 				:to="t.to"
+				:data-tour="'tab-' + t.name"
 				class="tabitem"
 				:class="{ 'router-link-active': route.name === t.name }"
 			>
@@ -160,13 +173,13 @@ function go(to: string) {
 						<button class="btn sm icon ghost" aria-label="Schließen" @click="menuOpen = false"><X :size="16" /></button>
 					</div>
 					<div class="card-body" style="padding-top: 0">
-						<button v-if="canPush" class="menu-link" :disabled="pushBusy" @click="togglePush">
+						<button v-if="canPush" class="menu-link" data-tour="menu-push" :disabled="pushBusy" @click="togglePush">
 							<component :is="pushOn ? Bell : BellOff" :size="19" />
 							<span>{{ pushOn ? 'Benachrichtigungen an' : 'Benachrichtigungen aus' }}</span>
 						</button>
 						<p v-if="pushMsg" class="push-hint">{{ pushMsg }}</p>
 
-						<button class="menu-link" @click="openPushSettings">
+						<button class="menu-link" data-tour="menu-erinnerungen" @click="openPushSettings">
 							<SlidersHorizontal :size="19" /> <span>Erinnerungen einstellen</span>
 						</button>
 
@@ -174,16 +187,16 @@ function go(to: string) {
 							<Smartphone :size="19" /> <span>Auf den Startbildschirm</span>
 						</button>
 
-						<button class="menu-link" @click="go('/abstimmungen')">
+						<button class="menu-link" data-tour="menu-abstimmungen" @click="go('/abstimmungen')">
 							<Vote :size="19" /> <span>Abstimmungen</span>
 						</button>
-						<button v-if="auth.can('beteiligung')" class="menu-link" @click="go('/beteiligung')">
+						<button v-if="auth.can('beteiligung')" class="menu-link" data-tour="menu-beteiligung" @click="go('/beteiligung')">
 							<BarChart3 :size="19" /> <span>Trainingsbeteiligung</span>
 						</button>
-						<button v-if="auth.isAdmin" class="menu-link" @click="go('/kader')">
+						<button v-if="auth.isAdmin" class="menu-link" data-tour="menu-kader" @click="go('/kader')">
 							<Users :size="19" /> <span>Kader &amp; Statistik</span>
 						</button>
-						<button v-if="auth.isAdmin" class="menu-link" @click="go('/verwaltung')">
+						<button v-if="auth.isAdmin" class="menu-link" data-tour="menu-verwaltung" @click="go('/verwaltung')">
 							<Settings :size="19" /> <span>Verwaltung &amp; Einbettungen</span>
 						</button>
 						<a
@@ -195,7 +208,7 @@ function go(to: string) {
 						>
 							<Instagram :size="19" /> <span>Instagram</span>
 						</a>
-						<button class="menu-link" @click="openHelp">
+						<button class="menu-link" data-tour="menu-hilfe" @click="openHelp">
 							<HelpCircle :size="19" /> <span>Hilfe &amp; Erklärung</span>
 						</button>
 						<div class="chalk-divider" />
@@ -209,7 +222,8 @@ function go(to: string) {
 
 		<InstallHint />
 		<PushSettingsSheet v-if="showPushSettings" @close="showPushSettings = false" />
-		<TourSheet v-if="tourMode" :mode="tourMode" @close="tourMode = null" />
+		<TourSheet v-if="tourMode" @close="tourMode = null" @restart="restartGuide" />
+		<TourGuide v-if="guideOn" v-model:menu-open="menuOpen" @close="endGuide" />
 	</div>
 	<RouterView v-else />
 </template>

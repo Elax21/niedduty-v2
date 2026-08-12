@@ -32,7 +32,10 @@ type User struct {
 	Role         string     `gorm:"not null;default:MEMBER" json:"role"`
 	Permissions  []string   `gorm:"serializer:json;type:jsonb;not null;default:'[]'" json:"permissions"`
 	PlayerID     *uuid.UUID `gorm:"type:uuid" json:"playerId"`
-	CreatedAt    time.Time  `json:"createdAt"`
+	// TutorialDone — der geführte Rundgang wurde durchgeklickt oder übersprungen.
+	// Hängt am Konto, nicht am Gerät: neues Handy heißt nicht neuer Rundgang.
+	TutorialDone bool      `gorm:"not null;default:false" json:"tutorialDone"`
+	CreatedAt    time.Time `json:"createdAt"`
 }
 
 // Invite — teilbarer Einladungslink zur Selbstregistrierung.

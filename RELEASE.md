@@ -1,5 +1,11 @@
 # Release-Notes
 
+## 12.08.2026 — Geführter Rundgang
+
+- ✨ **Geführter Rundgang beim ersten Einloggen** (`components/TourGuide.vue`, Drehbuch in `lib/tour.ts`): die App dunkelt ab, hebt ein echtes Bedienelement hervor (Tab „Start", „Liga", „Termine", „Kasse", dann das Menü mit Abstimmungen, Beteiligung, Kader, Verwaltung, Benachrichtigungen, Hilfe) und erklärt es direkt daneben. Bei den Tabs muss man selbst tippen — so lernt man den Weg statt einer Bildergeschichte; „Weiter" bleibt als Ausweg. Schritte, für die das Konto kein Recht hat, fallen raus. Anker sind `data-tour`-Attribute, keine Klassennamen.
+- ✨ **Merker am Konto statt am Gerät**: `users.tutorial_done` + `PUT /api/auth/me/tutorial` (nur die eigene Session, keine User-ID im Request). Neues Handy heißt nicht neuer Rundgang; der bisherige `localStorage`-Merker ist weg.
+- 💄 **Hilfe & Erklärung** zeigt nur noch das Nachschlagewerk, oben mit Knopf „Rundgang neu starten". Texte kommen weiterhin aus `lib/help.ts` — eine Quelle für Rundgang und Hilfe.
+
 ## 05.08.2026 — Live auf niedduty.de, Trainingsplan, Kalender, PWA-Hinweis
 
 - ✨ **Rückmeldungen sind jetzt vertraulich**: wer namentlich zu- oder abgesagt hat, sieht nur noch der Mannschaftsrat (Recht `beteiligung`). Alle anderen bekommen über `GET /api/attendance` ausschließlich die eigene Rückmeldung; die Zähler am Termin (zugesagt/abgesagt/offen) bleiben für alle sichtbar.
