@@ -35,6 +35,9 @@ cd frontend && npx vue-tsc -b           # Typecheck
 go test ./...                           # Go-Tests (fussball.de-Tests brauchen Netz, -short überspringt sie)
 ```
 
+**Deploy auf niedduty.de**: siehe [deploy/README.md](deploy/README.md) (Host `v20.ovh.emserver.de` **Port 22**,
+Proxmox CT 213, Binary lokal bauen → `pct push` → `systemctl restart niedduty`).
+
 **Produktion** (ein Binary, Frontend eingebettet):
 
 ```bash
