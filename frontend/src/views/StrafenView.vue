@@ -36,6 +36,11 @@ function euro(cents: number) {
 const openSum = computed(() => assigned.value.filter((p) => !p.paid).reduce((s, p) => s + p.amount, 0));
 const paidSum = computed(() => assigned.value.filter((p) => p.paid).reduce((s, p) => s + p.amount, 0));
 
+// Filter für Aufschreiber: bei 20 Spielern ist die Liste sonst lang, wenn man
+// nur wissen will, was einer offen hat.
+const filterPlayer = ref('');
+const filterOpenOnly = ref(false);
+
 const byPlayer = computed(() => {
 	const map = new Map<string, { player: Player; items: PlayerPenalty[]; open: number }>();
 	for (const p of players.value) map.set(p.id, { player: p, items: [], open: 0 });
@@ -47,6 +52,13 @@ const byPlayer = computed(() => {
 	}
 	return [...map.values()].filter((e) => e.items.length).sort((a, b) => b.open - a.open);
 });
+
+/** Angezeigte Liste — nach Spieler und „nur offen" gefiltert. */
+const shownPlayers = computed(() =>
+	byPlayer.value.filter(
+		(e) => (!filterPlayer.value || e.player.id === filterPlayer.value) && (!filterOpenOnly.value || e.open > 0)
+	)
+);
 
 async function load() {
 	const [c, a, p, s, ex] = await Promise.all([
@@ -366,9 +378,22 @@ useRefresh(load);
 
 	<!-- ── KASSE ── -->
 	<template v-if="tab === 'kasse'">
-		<div v-if="byPlayer.length" class="stack">
+		<!-- Filter: wer? und nur die, die noch was offen haben -->
+		<div v-if="canWrite && byPlayer.length" class="kasse-filter">
+			<select v-model="filterPlayer" class="input" aria-label="Nach Spieler filtern">
+				<option value="">Alle Spieler ({{ byPlayer.length }})</option>
+				<option v-for="e in byPlayer" :key="e.player.id" :value="e.player.id">
+					{{ e.player.name }} — {{ euro(e.open) }} offen
+				</option>
+			</select>
+			<button class="btn sm" :class="{ gold: filterOpenOnly }" @click="filterOpenOnly = !filterOpenOnly">
+				Nur offen
+			</button>
+		</div>
+
+		<div v-if="shownPlayers.length" class="stack">
 			<!-- Nach offenem Betrag sortiert = Rangliste der Kabinen-Sünder -->
-			<div v-for="(entry, i) in byPlayer" :key="entry.player.id" class="card str-anim" :class="entry.open ? 'hat-offen' : 'ist-bezahlt'">
+			<div v-for="(entry, i) in shownPlayers" :key="entry.player.id" class="card str-anim" :class="entry.open ? 'hat-offen' : 'ist-bezahlt'">
 				<div class="kasse-head">
 					<span class="rang" :class="{ top: i === 0 && entry.open > 0 }">{{ entry.player.number ?? i + 1 }}</span>
 					<strong>{{ entry.player.name }}</strong>
@@ -390,7 +415,11 @@ useRefresh(load);
 				</div>
 			</div>
 		</div>
-		<div v-else class="card"><div class="empty">Noch keine Strafen aufgeschrieben. Die Kasse dankt trotzdem.</div></div>
+		<div v-else class="card">
+			<div class="empty">
+				{{ byPlayer.length ? 'Kein Treffer — Filter zurücksetzen?' : 'Noch keine Strafen aufgeschrieben. Die Kasse dankt trotzdem.' }}
+			</div>
+		</div>
 	</template>
 
 	<!-- ── AUSGABEN ── -->
@@ -658,6 +687,10 @@ useRefresh(load);
 .logrow.wieder_offen .t { color: var(--warn); }
 .kasse-item.paid .grow { text-decoration: line-through; }
 .kasse-check { accent-color: var(--gold); width: 20px; height: 20px; flex-shrink: 0; }
+
+.kasse-filter { display: flex; gap: 8px; margin-bottom: 12px; }
+.kasse-filter .input { flex: 1; min-width: 0; min-height: 36px; padding: 6px 10px; font-size: 14px; }
+.kasse-filter .btn { flex-shrink: 0; }
 
 .hint { font-size: 12.5px; color: var(--ink-3); margin-top: 8px; }
 .hint strong { color: var(--gold); }

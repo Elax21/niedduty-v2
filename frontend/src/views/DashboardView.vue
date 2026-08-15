@@ -4,10 +4,10 @@ import { api } from '../services/api';
 import { useRefresh } from '../lib/refresh';
 import { useAuthStore } from '../stores/auth';
 import { enterRows, countUp } from '../lib/motion';
-import { MapPin, Clock, ChevronRight, CalendarDays, Check, X } from 'lucide-vue-next';
+import { MapPin, Clock, ChevronRight, CalendarDays, Check, X, Cake } from 'lucide-vue-next';
 import OpponentCard from '../components/OpponentCard.vue';
 import PollCard from '../components/PollCard.vue';
-import type { LeagueEntry, Occurrence, Scouting, Poll } from '../types';
+import type { LeagueEntry, Occurrence, Scouting, Poll, Player, Matches, Match, Attendance } from '../types';
 
 const auth = useAuthStore();
 
@@ -18,6 +18,10 @@ const openShown = ref(0);
 const pointsShown = ref(0);
 const scouting = ref<Scouting | null>(null);
 const polls = ref<Poll[]>([]);
+const players = ref<Player[]>([]);
+const matchList = ref<Match[]>([]);
+/** Rückmeldungen zu fussball.de-Spielen — die hängen an keinem Termin. */
+const matchAttendance = ref<Record<string, Attendance[]>>({});
 
 /** Karte meldet ihr neues Ergebnis zurück. */
 function onPollChanged(p: Poll) {
@@ -32,7 +36,53 @@ const ownPos = computed(() => {
 	return i < 0 ? null : i + 1;
 });
 const ownEntry = computed(() => table.value.find((e) => e.isOwn) ?? null);
-const upcoming = computed(() => events.value.filter((e) => e.occDate >= today).slice(0, 5));
+/** Jetzt als "HH:MM" — für die Frage, ob ein Termin von heute schon durch ist. */
+function nowHM() {
+	return new Date().toTimeString().slice(0, 5);
+}
+
+// Spiele stehen nicht in den Terminen, sie kommen von fussball.de. Damit oben
+// wirklich der nächste Termin steht — meistens eben das Spiel und nicht das
+// Training —, werden sie hier eingemischt. Schlüssel wie in der Termine-Seite
+// (`fdm_<id>`), sonst landen Zu- und Absagen in zwei verschiedenen Töpfen.
+function matchOccurrence(m: Match): Occurrence {
+	const opp = m.home.isOwn ? m.guest.name : m.home.name;
+	return {
+		id: '', eventKey: 'fdm_' + m.id, occDate: m.isoDate, title: opp, type: 'spiel',
+		date: m.isoDate, endDate: '', startTime: m.time, endTime: '',
+		location: m.venue?.name || m.venue?.address || '',
+		notes: m.home.isOwn ? 'Heimspiel' : 'Auswärtsspiel',
+		recurring: false, recurrenceType: '', recurrenceEnd: '', series: 'fussball',
+		occNote: '', attending: 0, declined: 0, open: 0, myStatus: '', myReason: ''
+	};
+}
+
+/** Eigene Termine + Spiele, nach Datum und Uhrzeit sortiert. */
+const allEvents = computed(() => {
+	const list = [...events.value, ...matchList.value.map(matchOccurrence)];
+	// Zähler der Spiele kommen nachgeladen dazu.
+	for (const o of list) {
+		const att = matchAttendance.value[o.eventKey];
+		if (!att) continue;
+		o.attending = att.filter((a) => a.status === 'attending').length;
+		o.declined = att.filter((a) => a.status === 'declined').length;
+		o.myStatus = att.find((a) => a.playerId === myPlayerId.value)?.status ?? '';
+	}
+	return list.sort((a, b) => (a.occDate + a.startTime).localeCompare(b.occDate + b.startTime));
+});
+
+// Oben steht immer der Termin, der wirklich als nächstes kommt: heutige
+// Termine fallen raus, sobald sie vorbei sind (Ende, sonst Beginn).
+const upcoming = computed(() =>
+	allEvents.value
+		.filter((e) => {
+			if (e.occDate > today) return true;
+			if (e.occDate < today) return false;
+			const ende = e.endTime || e.startTime;
+			return !ende || ende >= nowHM();
+		})
+		.slice(0, 5)
+);
 const nextEvent = computed(() => upcoming.value[0] ?? null);
 /** Nur Spieler-Konten dürfen sich selbst zu- oder absagen. */
 const myPlayerId = computed(() => auth.user?.playerId ?? null);
@@ -64,6 +114,32 @@ const daysLeft = computed(() => {
 });
 const daysLabel = computed(() => (daysLeft.value === 0 ? 'Heute' : daysLeft.value === 1 ? 'Tag' : 'Tage'));
 
+// ── Geburtstage ────────────────────────────────────────────────
+// Wer heute Geburtstag hat, steht ganz oben — Tag und Monat zählen, das Jahr
+// nur fürs Alter (viele Kader-Einträge haben keins).
+const birthdayToday = computed(() => players.value.filter((p) => p.birthday?.slice(5, 10) === today.slice(5, 10)));
+
+function age(p: Player): number | null {
+	const year = Number(p.birthday?.slice(0, 4));
+	if (!year || year <= 1900) return null;
+	return Number(today.slice(0, 4)) - year;
+}
+
+/** „Markus" · „Markus und Ali" · „Markus, Ali und Sam" */
+const birthdayNames = computed(() => {
+	const names = birthdayToday.value.map((p) => p.name.split(' ')[0]);
+	if (names.length <= 1) return names[0] ?? '';
+	return `${names.slice(0, -1).join(', ')} und ${names[names.length - 1]}`;
+});
+const birthdayText = computed(() => {
+	const list = birthdayToday.value;
+	if (!list.length) return '';
+	const verb = list.length === 1 ? 'hat' : 'haben';
+	const jahre = list.length === 1 ? age(list[0]) : null;
+	const wird = jahre ? ` — wird ${jahre}` : '';
+	return `${birthdayNames.value} ${verb} heute Geburtstag${wird}.`;
+});
+
 const greeting = computed(() => {
 	const h = new Date().getHours();
 	const first = (auth.user?.name || '').split(' ')[0];
@@ -74,8 +150,26 @@ const greeting = computed(() => {
 async function loadEvents() {
 	const from = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
 	const to = new Date(Date.now() + 60 * 86400000).toISOString().slice(0, 10);
-	const { data } = await api.get<Occurrence[]>('/events', { params: { from, to } });
-	events.value = data;
+	const [ev, mt] = await Promise.all([
+		api.get<Occurrence[]>('/events', { params: { from, to } }),
+		api.get<Matches>('/fussball/matches').catch(() => ({ data: null as Matches | null }))
+	]);
+	events.value = ev.data;
+	matchList.value = (mt.data?.next ?? []).filter((m) => m.isoDate && m.isoDate >= today && m.isoDate <= to);
+	// Nur die nächsten paar Spiele brauchen Zähler — der Rest steht ohnehin
+	// nur klein in der Liste.
+	matchAttendance.value = {};
+	await Promise.all(matchList.value.slice(0, 3).map(loadMatchAttendance));
+}
+
+async function loadMatchAttendance(m: Match) {
+	const key = 'fdm_' + m.id;
+	try {
+		const { data } = await api.get<Attendance[]>('/attendance', { params: { eventKey: key } });
+		matchAttendance.value = { ...matchAttendance.value, [key]: data };
+	} catch {
+		/* Ohne Zähler ist die Karte immer noch brauchbar. */
+	}
 }
 
 /** Zu-/Absage direkt vom Ticket — optimistisch, danach frisch laden. */
@@ -106,6 +200,11 @@ async function loadAll() {
 	countUp(ownEntry.value?.points ?? 0, (v) => (pointsShown.value = v));
 	requestAnimationFrame(() => enterRows('.dash-anim'));
 
+	// Kader nur für die Geburtstagskarte — darf ruhig nachtröpfeln.
+	api.get<Player[]>('/players')
+		.then((r) => { players.value = r.data; })
+		.catch(() => {});
+
 	// Laufende Abstimmungen — kurz, damit sie oben auffallen.
 	api.get<Poll[]>('/polls/running')
 		.then((r) => { polls.value = r.data; })
@@ -126,6 +225,15 @@ useRefresh(loadAll);
 		<div class="hi">{{ greeting }}</div>
 		<div class="date">{{ new Date().toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' }) }}</div>
 	</div>
+
+	<!-- Geburtstag: steht über allem, gilt nur heute -->
+	<section v-if="birthdayToday.length" class="bday dash-anim">
+		<span class="bday-icon"><Cake :size="20" /></span>
+		<span class="grow">
+			<span class="t">{{ birthdayText }}</span>
+			<span class="s">Gratulieren nicht vergessen.</span>
+		</span>
+	</section>
 
 	<!-- Signature: Matchday-Ticket -->
 	<section v-if="nextEvent" class="ticket dash-anim" :class="nextEvent.type">
@@ -161,8 +269,9 @@ useRefresh(loadAll);
 				<X :size="16" /> Absage
 			</button>
 		</div>
-		<RouterLink v-else to="/termine" class="ticket-foot">
-			<span class="rsvp">Alle Termine</span>
+		<!-- Ohne verknüpften Kader-Eintrag geht keine Zu-/Absage — sagen statt schweigen. -->
+		<RouterLink v-else :to="auth.isAdmin ? '/verwaltung' : '/termine'" class="ticket-foot">
+			<span class="rsvp">{{ auth.isAdmin ? 'Konto mit Spieler verknüpfen' : 'Alle Termine' }}</span>
 		</RouterLink>
 	</section>
 	<div v-else class="card dash-anim">
@@ -245,6 +354,28 @@ useRefresh(loadAll);
 </template>
 
 <style scoped>
+/* Geburtstagskarte — gold, aber ruhig; sie soll das Ticket nicht überstrahlen */
+.bday {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 13px 15px;
+	margin-bottom: 14px;
+	border: 1px solid rgba(244, 177, 37, 0.34);
+	border-radius: 16px;
+	background: var(--gold-bg);
+}
+.bday-icon {
+	width: 38px; height: 38px;
+	flex-shrink: 0;
+	display: grid; place-items: center;
+	border-radius: 12px;
+	background: linear-gradient(180deg, var(--gold-soft), var(--gold));
+	color: var(--gold-ink);
+}
+.bday .t { display: block; font-family: var(--font-display); font-size: 15px; font-weight: 600; color: var(--ink); }
+.bday .s { display: block; font-size: 12.5px; color: var(--ink-3); margin-top: 2px; }
+
 .hello { margin: 2px 2px 16px; }
 .hi { font-family: var(--font-display); font-size: 30px; font-weight: 800; text-transform: uppercase; line-height: 1; }
 .date { color: var(--ink-3); font-size: 12.5px; margin-top: 5px; }

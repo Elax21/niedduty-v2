@@ -1,5 +1,12 @@
 # Release-Notes
 
+## 15.08.2026 — Startseite: Spiele, Geburtstage · Kasse filtern
+
+- ✨ **Oben steht der Termin, der wirklich als nächstes kommt**: Die Startseite mischt die fussball.de-Spiele unter die eigenen Termine (Schlüssel `fdm_<id>` wie in der Termine-Seite, damit Zu-/Absagen nicht in zwei Töpfen landen). Heutige Termine fallen aus dem Ticket, sobald sie vorbei sind (Ende, sonst Beginn) — vorher stand das Training noch abends um elf oben.
+- ✨ **Geburtstagskarte** auf der Startseite: „Markus hat heute Geburtstag — wird 27." Tag und Monat entscheiden, das Jahr liefert nur das Alter (viele Kader-Einträge haben keins). Mehrere an einem Tag stehen in einer Zeile.
+- ✨ **Kasse filtern** (Recht `strafen`): Auswahl nach Spieler samt offenem Betrag, dazu ein Schalter „Nur offen".
+- 💄 **Ticket ohne Kader-Verknüpfung**: Konten ohne verknüpften Spieler sahen nur „Alle Termine" und keinen Grund dafür. Admins kommen jetzt von dort direkt in die Verwaltung.
+
 ## 15.08.2026 — Minuten-Strafen und Ausgaben aus der Kasse
 
 - ✨ **Strafen je Minute** (`penalties.per_unit` + `unit_label`): Katalog-Einträge lassen sich als „Betrag je Einheit" markieren. Beim Aufschreiben erscheint dann ein Mengen-Zähler (z. B. Minuten Verspätung), der Betrag wird multipliziert und die Menge landet im Text der Strafe („Verspätung Training (7 Minuten)"). Bestehende Einträge mit Zusatz „pro Minute" werden beim ersten Start einmalig umgestellt (Merker `migration.perUnitMinuten` in `settings`).
