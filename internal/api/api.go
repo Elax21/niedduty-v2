@@ -39,12 +39,14 @@ func (a *API) Routes(r *gin.Engine) {
 	{
 		auth.GET("/auth/me", a.Me)
 		auth.PUT("/auth/me/tutorial", a.SetTutorialDone)
+		auth.PUT("/auth/me/changelog", a.SetChangelogSeen)
 		auth.GET("/club", a.GetClub)
 		auth.GET("/players", a.ListPlayers)
 		auth.GET("/table", a.GetTable)
 		auth.GET("/penalties", a.ListPenalties)
 		auth.GET("/player-penalties", a.ListPlayerPenalties)
 		auth.GET("/player-penalties/summary", a.PenaltiesSummary)
+		auth.GET("/expenses", a.ListExpenses)
 		auth.GET("/events", a.ListEvents)
 		auth.GET("/training-schedule", a.GetTrainingSchedule)
 		auth.GET("/stats/overview", a.StatsOverview)
@@ -84,6 +86,8 @@ func (a *API) Routes(r *gin.Engine) {
 			strafen.POST("/player-penalties", a.AssignPenalty)
 			strafen.POST("/player-penalties/paid", a.SetPenaltiesPaid)
 			strafen.POST("/player-penalties/delete", a.DeletePlayerPenalties)
+			strafen.POST("/expenses", a.CreateExpense)
+			strafen.DELETE("/expenses/:id", a.DeleteExpense)
 			strafen.GET("/penalty-log", a.ListPenaltyLog)
 			strafen.GET("/penalty-log/verify", a.VerifyPenaltyLog)
 		}

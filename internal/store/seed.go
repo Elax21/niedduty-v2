@@ -13,6 +13,8 @@ import (
 // wiederkehrenden Trainings. Kader + Tabelle bleiben leer — Spieler kommen über
 // Selbstregistrierung, die Tabelle wird von fussball.de gesynct.
 func Seed(db *gorm.DB) {
+	defer migrateMinutenStrafen(db)
+
 	var count int64
 	db.Model(&models.User{}).Count(&count)
 	if count > 0 {
@@ -43,9 +45,11 @@ func Seed(db *gorm.DB) {
 		{Label: "Unentschuldigtes Fehlen beim Training", Amount: 2500,
 			Unit: "Abmeldung bis 16 Uhr beim Trainerteam, nicht in der Gruppe", SortOrder: 2},
 		{Label: "Verspätet zum Training", Amount: 50,
-			Unit: "pro Minute · ohne Abmeldung, 19:15 Uhr auf dem Platz", SortOrder: 3},
+			Unit: "pro Minute · ohne Abmeldung, 19:15 Uhr auf dem Platz", SortOrder: 3,
+			PerUnit: true, UnitLabel: "Minuten"},
 		{Label: "Verspätet zum Treffpunkt", Amount: 50,
-			Unit: "pro Minute · ohne Abmeldung, ab 5 Min nach Treffpunkt", SortOrder: 4},
+			Unit: "pro Minute · ohne Abmeldung, ab 5 Min nach Treffpunkt", SortOrder: 4,
+			PerUnit: true, UnitLabel: "Minuten"},
 		{Label: "Gelbe Karte wegen Meckern oder Beleidigung", Amount: 1000, SortOrder: 5},
 		{Label: "Gelb-Rote Karte wegen Meckern oder Beleidigung", Amount: 2000, SortOrder: 6},
 		{Label: "Rote Karte wegen unsportlichem Verhalten", Amount: 4000, SortOrder: 7},
@@ -76,4 +80,23 @@ func Seed(db *gorm.DB) {
 		db.Create(&trainings[i])
 	}
 	log.Println("Seed: fertig.")
+}
+
+// migrateMinutenStrafen markiert bestehende „pro Minute"-Katalogeinträge
+// nachträglich als Mengen-Strafe, damit beim Aufschreiben Minuten wählbar
+// sind. Läuft dank Merker genau einmal — wer den Haken danach entfernt,
+// behält seine Einstellung.
+func migrateMinutenStrafen(db *gorm.DB) {
+	const key = "migration.perUnitMinuten"
+	var flag models.Setting
+	if err := db.First(&flag, "key = ?", key).Error; err == nil {
+		return
+	}
+	res := db.Model(&models.Penalty{}).
+		Where("per_unit = ? AND unit ILIKE ?", false, "pro Minute%").
+		Updates(map[string]any{"per_unit": true, "unit_label": "Minuten"})
+	if res.RowsAffected > 0 {
+		log.Printf("Migration: %d Katalogeinträge auf Minuten-Menge umgestellt", res.RowsAffected)
+	}
+	db.Create(&models.Setting{Key: key, Value: "done"})
 }

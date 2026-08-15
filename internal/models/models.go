@@ -34,8 +34,11 @@ type User struct {
 	PlayerID     *uuid.UUID `gorm:"type:uuid" json:"playerId"`
 	// TutorialDone — der geführte Rundgang wurde durchgeklickt oder übersprungen.
 	// Hängt am Konto, nicht am Gerät: neues Handy heißt nicht neuer Rundgang.
-	TutorialDone bool      `gorm:"not null;default:false" json:"tutorialDone"`
-	CreatedAt    time.Time `json:"createdAt"`
+	TutorialDone bool `gorm:"not null;default:false" json:"tutorialDone"`
+	// SeenChangelog — Version der zuletzt gelesenen Neuerungen (Datum als Text,
+	// z.B. "2026-08-15"). Hängt wie der Rundgang am Konto, nicht am Gerät.
+	SeenChangelog string    `json:"seenChangelog"`
+	CreatedAt     time.Time `json:"createdAt"`
 }
 
 // Invite — teilbarer Einladungslink zur Selbstregistrierung.
@@ -129,7 +132,24 @@ type Penalty struct {
 	Amount    int       `gorm:"not null" json:"amount"` // Cent
 	Unit      string    `json:"unit"`                   // z.B. "pro Minute", "pro Vorfall"
 	SortOrder int       `gorm:"not null;default:0" json:"sortOrder"`
+	// PerUnit — Betrag gilt je Einheit (z.B. je Minute Verspätung). Beim
+	// Aufschreiben wird dann eine Menge abgefragt und multipliziert.
+	PerUnit bool `gorm:"not null;default:false" json:"perUnit"`
+	// UnitLabel — Name der Einheit im Plural ("Minuten"). Nur wenn PerUnit.
+	UnitLabel string    `json:"unitLabel"`
 	CreatedAt time.Time `json:"createdAt"`
+}
+
+// Expense — Ausgabe aus der Mannschaftskasse (Bälle, Mannschaftsabend, Essen).
+// Wird vom bezahlten Geld abgezogen und landet ebenfalls im Kassen-Protokoll.
+type Expense struct {
+	ID          uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	Label       string    `gorm:"not null" json:"label"`  // Grund, z.B. "Bälle gekauft"
+	Amount      int       `gorm:"not null" json:"amount"` // Cent, immer positiv
+	Date        string    `json:"date"`                   // YYYY-MM-DD
+	CreatedBy   uuid.UUID `gorm:"type:uuid" json:"createdBy"`
+	CreatorName string    `json:"creatorName"`
+	CreatedAt   time.Time `json:"createdAt"`
 }
 
 // PlayerPenalty — zugewiesene Strafe. Betrag wird kopiert, damit spätere
@@ -195,6 +215,8 @@ const (
 	PenaltyActionUnpaid   = "wieder_offen"
 	PenaltyActionCatalog  = "katalog_geaendert"
 	PenaltyActionCatalogX = "katalog_geloescht"
+	PenaltyActionExpense  = "ausgabe"
+	PenaltyActionExpenseX = "ausgabe_geloescht"
 )
 
 // Poll — Abstimmung für die Mannschaft. Läuft bis EndsAt und erscheint bis

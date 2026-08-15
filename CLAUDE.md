@@ -92,6 +92,11 @@ Screens zentrierte Handy-Spalte (max 480px), keine Desktop-Sidebar mehr.
 - **Termine**: `events.date` als `YYYY-MM-DD`-Text; Wiederholung weekly/biweekly. API expandiert zu Occurrences; `eventKey` = `ID` bzw. `ID_YYYY-MM-DD`. Attendance hängt am `eventKey`.
 - **Beteiligung**: `GET /api/attendance/stats?from&to` zählt nur Trainings-Vorkommen bis heute.
 - **Strafen**: Beträge in **Cent**; beim Zuweisen wird Label+Betrag kopiert (Katalog-Änderungen verfälschen alte Strafen nicht).
+  Katalog-Einträge mit `perUnit` (+ `unitLabel`, z. B. „Minuten") fragen beim Aufschreiben eine Menge ab —
+  Betrag × Menge, Menge steht im kopierten Label.
+- **Kassen-Ausgaben**: `models.Expense` (`/api/expenses`) = Geld raus (Bälle, Mannschaftsabend). Kassenstand =
+  bezahlte Strafen − Ausgaben, kommt aus `/api/player-penalties/summary`. Ausgaben sind in der UI **gelb**
+  (`--warn`), nicht grün/rot; jede Bewegung landet im `penalty_log`.
 - **Gegner-Scouting**: `GET /api/fussball/scouting` → nächstes Spiel + Gegner (Tabellenzeile, Formkurve aus
   dessen Spielplan, frühere Duelle, ein Satz Klartext). 30-Min-Cache.
 - **Spielerstatistik**: `GET /api/fussball/squad-stats?saison=2526` → Einsätze/Einsatzminuten/Tore aus
@@ -101,6 +106,8 @@ Screens zentrierte Handy-Spalte (max 480px), keine Desktop-Sidebar mehr.
 - **Liga/fussball.de**: drei Widget-URLs am Club — `fussballDeWidget` (Tabelle), `fussballDeUpcoming` (kommende Spiele), `fussballDeResults` (Ergebnisse), alle mit Prefix `https://www.fussball.de/`. LigaView bettet sie per iframe ein (Segmented-Control). Tabelle zusätzlich manuell pflegbar (`PUT /api/table` ersetzt komplett) als Fallback.
 - **Google-Kalender**: optionaler `club.googleCalendarUrl` (Prefix `https://calendar.google.com/`) → Button in Termine; zusätzlich pro Termin ein „Zu Google Kalender"-Deep-Link.
 - **Trainingsbeteiligung**: `/beteiligung` (Recht `beteiligung`), Daten aus `/api/attendance/stats`.
+- **Neuerungen-Notiz**: bei jedem Release `frontend/src/lib/changelog.ts` pflegen (Version = Datum + 2–3 Sätze
+  für die Mannschaft). Gelesen wird am Konto gemerkt (`users.seen_changelog`).
 
 ## Design-System „Flutlicht v2"
 

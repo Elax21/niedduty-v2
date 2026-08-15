@@ -1,5 +1,12 @@
 # Release-Notes
 
+## 15.08.2026 — Minuten-Strafen und Ausgaben aus der Kasse
+
+- ✨ **Strafen je Minute** (`penalties.per_unit` + `unit_label`): Katalog-Einträge lassen sich als „Betrag je Einheit" markieren. Beim Aufschreiben erscheint dann ein Mengen-Zähler (z. B. Minuten Verspätung), der Betrag wird multipliziert und die Menge landet im Text der Strafe („Verspätung Training (7 Minuten)"). Bestehende Einträge mit Zusatz „pro Minute" werden beim ersten Start einmalig umgestellt (Merker `migration.perUnitMinuten` in `settings`).
+- ✨ **Geld ausgeben** (`models.Expense`, `GET/POST/DELETE /api/expenses`, Tab „Ausgaben" in der Kasse): Ausgabe mit Grund, Betrag und Datum eintragen — z. B. „Bälle gekauft" 50 €. Sehen dürfen es alle, eintragen nur mit Recht `strafen`. Jede Ausgabe und jede Löschung steht im Kassen-Protokoll (Hash-Kette).
+- ✨ **„Neu in der Kabine"** (`components/ChangeNotes.vue`, Texte + Version in `lib/changelog.ts`): kurze Notiz beim Öffnen der App, sobald es Neuerungen gibt — einmal je Version. Der Merker hängt wie beim Rundgang am Konto (`users.seen_changelog`, `PUT /api/auth/me/changelog`, nur die eigene Session), nicht am Gerät. Wer den Rundgang noch vor sich hat, sieht die Notiz nicht; für den ist die App ohnehin neu.
+- 💄 **Kassenzettel zeigt jetzt Ausgaben und Kassenstand** (bezahlt − ausgegeben). Geld, das die Kasse verlässt, ist durchgehend **gelb** (`--warn`) statt grün/rot — Liste, Protokollzeile und der Plus-Button im Ausgaben-Tab; ein negativer Kassenstand bleibt rot.
+
 ## 12.08.2026 — Geführter Rundgang
 
 - ✨ **Geführter Rundgang beim ersten Einloggen** (`components/TourGuide.vue`, Drehbuch in `lib/tour.ts`): die App dunkelt ab, hebt ein echtes Bedienelement hervor (Tab „Start", „Liga", „Termine", „Kasse", dann das Menü mit Abstimmungen, Beteiligung, Kader, Verwaltung, Benachrichtigungen, Hilfe) und erklärt es direkt daneben. Bei den Tabs muss man selbst tippen — so lernt man den Weg statt einer Bildergeschichte; „Weiter" bleibt als Ausweg. Schritte, für die das Konto kein Recht hat, fallen raus. Anker sind `data-tour`-Attribute, keine Klassennamen.

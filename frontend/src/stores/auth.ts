@@ -63,10 +63,20 @@ export const useAuthStore = defineStore('auth', () => {
 		}
 	}
 
+	/** Merkt am Konto, dass die Neuerungen dieser Version gelesen sind. */
+	async function setChangelogSeen(version: string) {
+		if (user.value) user.value.seenChangelog = version;
+		try {
+			await api.put('/auth/me/changelog', { version });
+		} catch {
+			/* Nicht gespeichert? Dann kommt die Notiz beim nächsten Start erneut. */
+		}
+	}
+
 	async function logout() {
 		await api.post('/auth/logout');
 		user.value = null;
 	}
 
-	return { user, club, loaded, isAdmin, can, fetchMe, login, register, logout, setTutorialDone };
+	return { user, club, loaded, isAdmin, can, fetchMe, login, register, logout, setTutorialDone, setChangelogSeen };
 });

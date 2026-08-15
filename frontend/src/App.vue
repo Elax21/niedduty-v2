@@ -9,6 +9,8 @@ import InstallHint from './components/InstallHint.vue';
 import PushSettingsSheet from './components/PushSettingsSheet.vue';
 import TourSheet from './components/TourSheet.vue';
 import TourGuide from './components/TourGuide.vue';
+import ChangeNotes from './components/ChangeNotes.vue';
+import { changelogVersion } from './lib/changelog';
 import {
 	Home, Trophy, CalendarDays, Wallet,
 	Users, Settings, LogOut, MoreVertical, X,
@@ -60,20 +62,38 @@ const showPushSettings = ref(false);
 const tourMode = ref<'hilfe' | null>(null);
 const guideOn = ref(false);
 
+// Neuerungen: einmal je Version beim Öffnen. Wer den Rundgang noch vor sich
+// hat, sieht die App zum ersten Mal — für den ist alles neu, also nur den
+// Merker setzen und die Notiz überspringen.
+const changeNotesOn = ref(false);
+
 watch(
 	() => auth.user?.id,
 	(id) => {
-		if (!id || auth.user?.tutorialDone) return;
-		setTimeout(() => {
-			if (auth.user && !auth.user.tutorialDone) guideOn.value = true;
-		}, 600);
+		if (!id) return;
+		if (!auth.user?.tutorialDone) {
+			setTimeout(() => {
+				if (auth.user && !auth.user.tutorialDone) guideOn.value = true;
+			}, 600);
+			return;
+		}
+		if (auth.user.seenChangelog !== changelogVersion) {
+			setTimeout(() => (changeNotesOn.value = true), 800);
+		}
 	},
 	{ immediate: true }
 );
 
+function endChangeNotes() {
+	changeNotesOn.value = false;
+	auth.setChangelogSeen(changelogVersion);
+}
+
 function endGuide() {
 	guideOn.value = false;
 	auth.setTutorialDone(true);
+	// Nach dem Rundgang kennt das Konto den aktuellen Stand.
+	auth.setChangelogSeen(changelogVersion);
 }
 function restartGuide() {
 	tourMode.value = null;
@@ -224,6 +244,7 @@ function go(to: string) {
 		<PushSettingsSheet v-if="showPushSettings" @close="showPushSettings = false" />
 		<TourSheet v-if="tourMode" @close="tourMode = null" @restart="restartGuide" />
 		<TourGuide v-if="guideOn" v-model:menu-open="menuOpen" @close="endGuide" />
+		<ChangeNotes v-if="changeNotesOn && !guideOn" @close="endChangeNotes" />
 	</div>
 	<RouterView v-else />
 </template>

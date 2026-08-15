@@ -93,3 +93,23 @@ func (a *API) SetTutorialDone(c *gin.Context) {
 	user.TutorialDone = done
 	c.JSON(http.StatusOK, gin.H{"tutorialDone": done})
 }
+
+// SetChangelogSeen merkt am eigenen Konto, welche Neuerungen gelesen wurden.
+// Wie beim Rundgang ohne User-ID im Request — immer nur die eigene Session.
+func (a *API) SetChangelogSeen(c *gin.Context) {
+	var req struct {
+		Version string `json:"version" binding:"required,max=20"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Version fehlt"})
+		return
+	}
+	user := middleware.CurrentUser(c)
+	if err := a.db.Model(&models.User{}).Where("id = ?", user.ID).
+		Update("seen_changelog", req.Version).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Konnte nicht gespeichert werden"})
+		return
+	}
+	user.SeenChangelog = req.Version
+	c.JSON(http.StatusOK, gin.H{"seenChangelog": req.Version})
+}

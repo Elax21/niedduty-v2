@@ -1,7 +1,9 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/alessandro/niedduty/internal/middleware"
 	"github.com/alessandro/niedduty/internal/models"
@@ -14,6 +16,17 @@ type penaltyReq struct {
 	Amount    int    `json:"amount" binding:"required,min=1,max=100000"` // Cent
 	Unit      string `json:"unit" binding:"max=120"`
 	SortOrder int    `json:"sortOrder"`
+	// PerUnit + UnitLabel: Betrag je Einheit (z.B. 50 ct je Minute).
+	PerUnit   bool   `json:"perUnit"`
+	UnitLabel string `json:"unitLabel" binding:"max=40"`
+}
+
+// unitLabel — Fallback, damit die Menge im Text nie nackt dasteht.
+func unitLabel(l string) string {
+	if l = strings.TrimSpace(l); l != "" {
+		return l
+	}
+	return "×"
 }
 
 func (a *API) ListPenalties(c *gin.Context) {
@@ -28,7 +41,10 @@ func (a *API) CreatePenalty(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Bezeichnung und Betrag (Cent) angeben"})
 		return
 	}
-	p := models.Penalty{Label: req.Label, Amount: req.Amount, Unit: req.Unit, SortOrder: req.SortOrder}
+	p := models.Penalty{
+		Label: req.Label, Amount: req.Amount, Unit: req.Unit, SortOrder: req.SortOrder,
+		PerUnit: req.PerUnit, UnitLabel: req.UnitLabel,
+	}
 	a.db.Create(&p)
 	a.writePenaltyLog(c, logEntry{Action: models.PenaltyActionCatalog, Label: p.Label, Amount: p.Amount})
 	c.JSON(http.StatusCreated, p)
@@ -46,6 +62,7 @@ func (a *API) UpdatePenalty(c *gin.Context) {
 		return
 	}
 	p.Label, p.Amount, p.Unit, p.SortOrder = req.Label, req.Amount, req.Unit, req.SortOrder
+	p.PerUnit, p.UnitLabel = req.PerUnit, req.UnitLabel
 	a.db.Save(&p)
 	a.writePenaltyLog(c, logEntry{Action: models.PenaltyActionCatalog, Label: p.Label, Amount: p.Amount})
 	c.JSON(http.StatusOK, p)
@@ -82,13 +99,17 @@ func (a *API) ListPlayerPenalties(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
-// PenaltiesSummary — sichere Team-Aggregatsummen (offen/bezahlt), ohne
-// Aufschlüsselung pro Spieler. Für alle eingeloggten Nutzer sichtbar.
+// PenaltiesSummary — sichere Team-Aggregatsummen (offen/bezahlt/ausgegeben),
+// ohne Aufschlüsselung pro Spieler. Für alle eingeloggten Nutzer sichtbar.
 func (a *API) PenaltiesSummary(c *gin.Context) {
-	var open, paid int64
+	var open, paid, spent int64
 	a.db.Model(&models.PlayerPenalty{}).Where("paid = ?", false).Select("COALESCE(SUM(amount),0)").Scan(&open)
 	a.db.Model(&models.PlayerPenalty{}).Where("paid = ?", true).Select("COALESCE(SUM(amount),0)").Scan(&paid)
-	c.JSON(http.StatusOK, gin.H{"totalOpen": open, "totalPaid": paid})
+	a.db.Model(&models.Expense{}).Select("COALESCE(SUM(amount),0)").Scan(&spent)
+	c.JSON(http.StatusOK, gin.H{
+		"totalOpen": open, "totalPaid": paid,
+		"totalSpent": spent, "balance": paid - spent,
+	})
 }
 
 // assignReq — Mehrfach-Zuweisung: jeder gewählte Spieler bekommt jedes
@@ -97,8 +118,11 @@ func (a *API) PenaltiesSummary(c *gin.Context) {
 type assignReq struct {
 	PlayerIDs  []uuid.UUID `json:"playerIds" binding:"required,min=1"`
 	PenaltyIDs []uuid.UUID `json:"penaltyIds"`
-	FreeLabel  string      `json:"freeLabel" binding:"max=120"`
-	FreeAmount int         `json:"freeAmount" binding:"min=0,max=100000"`
+	// Quantities — Menge je Katalog-Eintrag (nur bei PerUnit), Schlüssel ist
+	// die Penalty-ID als Text. Fehlt der Eintrag, zählt 1.
+	Quantities map[string]int `json:"quantities"`
+	FreeLabel  string         `json:"freeLabel" binding:"max=120"`
+	FreeAmount int            `json:"freeAmount" binding:"min=0,max=100000"`
 }
 
 func (a *API) AssignPenalty(c *gin.Context) {
@@ -146,7 +170,22 @@ func (a *API) AssignPenalty(c *gin.Context) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "Vergehen nicht gefunden"})
 				return
 			}
-			rows = append(rows, models.PlayerPenalty{PlayerID: pid, Label: pen.Label, Amount: pen.Amount})
+			label, amount := pen.Label, pen.Amount
+			// Mengen-Strafe: Betrag mal Menge, Menge steht im Text
+			// ("Verspätet zum Training (7 Minuten)").
+			if pen.PerUnit {
+				qty := req.Quantities[penID.String()]
+				if qty < 1 {
+					qty = 1
+				}
+				if qty > 500 {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Menge zu groß (max. 500)"})
+					return
+				}
+				amount = pen.Amount * qty
+				label = fmt.Sprintf("%s (%d %s)", pen.Label, qty, unitLabel(pen.UnitLabel))
+			}
+			rows = append(rows, models.PlayerPenalty{PlayerID: pid, Label: label, Amount: amount})
 		}
 		if hasFree {
 			rows = append(rows, models.PlayerPenalty{PlayerID: pid, Label: req.FreeLabel, Amount: req.FreeAmount})

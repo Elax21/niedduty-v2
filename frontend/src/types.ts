@@ -7,6 +7,8 @@ export interface User {
 	permissions: string[];
 	playerId: string | null;
 	tutorialDone: boolean;
+	/** Version der zuletzt gelesenen Neuerungen, siehe lib/changelog.ts. */
+	seenChangelog: string;
 }
 
 export interface MatchTeam {
@@ -90,6 +92,21 @@ export interface Penalty {
 	amount: number; // Cent
 	unit: string;
 	sortOrder: number;
+	/** Betrag gilt je Einheit (z.B. je Minute Verspätung) → Menge wählbar. */
+	perUnit: boolean;
+	/** Name der Einheit im Plural, z.B. "Minuten". */
+	unitLabel: string;
+}
+
+/** Ausgabe aus der Mannschaftskasse (Bälle, Mannschaftsabend, Essen). */
+export interface Expense {
+	id: string;
+	label: string;
+	amount: number; // Cent, immer positiv
+	date: string; // YYYY-MM-DD
+	createdBy: string;
+	creatorName: string;
+	createdAt: string;
 }
 
 export interface PlayerPenalty {

@@ -24,6 +24,7 @@ func Open(dsn string) (*gorm.DB, error) {
 		&models.LeagueEntry{},
 		&models.Penalty{},
 		&models.PlayerPenalty{},
+		&models.Expense{},
 		&models.Event{},
 		&models.EventAttendance{},
 		&models.EventNote{},
