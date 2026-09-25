@@ -12,9 +12,8 @@ import TourGuide from './components/TourGuide.vue';
 import ChangeNotes from './components/ChangeNotes.vue';
 import { changelogVersion } from './lib/changelog';
 import {
-	Home, Trophy, CalendarDays, Wallet,
 	Users, Settings, LogOut, MoreVertical, X,
-	Instagram, Bell, BellOff, BarChart3, Smartphone, RefreshCw, SlidersHorizontal, HelpCircle, Vote
+	Instagram, Bell, BellOff, Smartphone, RefreshCw, SlidersHorizontal, HelpCircle
 } from 'lucide-vue-next';
 
 const route = useRoute();
@@ -22,13 +21,6 @@ const router = useRouter();
 const auth = useAuthStore();
 
 const showShell = computed(() => route.name !== 'login' && !!auth.user);
-
-const tabs = [
-	{ to: '/', name: 'dashboard', label: 'Start', icon: Home },
-	{ to: '/liga', name: 'liga', label: 'Liga', icon: Trophy },
-	{ to: '/termine', name: 'termine', label: 'Termine', icon: CalendarDays },
-	{ to: '/strafen', name: 'strafen', label: 'Kasse', icon: Wallet }
-];
 
 const menuOpen = ref(false);
 
@@ -169,20 +161,6 @@ function go(to: string) {
 			</RouterView>
 		</main>
 
-		<nav class="tabbar" aria-label="Hauptnavigation">
-			<RouterLink
-				v-for="t in tabs"
-				:key="t.to"
-				:to="t.to"
-				:data-tour="'tab-' + t.name"
-				class="tabitem"
-				:class="{ 'router-link-active': route.name === t.name }"
-			>
-				<span class="ic"><component :is="t.icon" :size="22" aria-hidden="true" /></span>
-				<span>{{ t.label }}</span>
-			</RouterLink>
-		</nav>
-
 		<!-- Menü-Sheet -->
 		<Transition name="fade">
 			<div v-if="menuOpen" class="modal-backdrop" @click.self="menuOpen = false">
@@ -207,12 +185,6 @@ function go(to: string) {
 							<Smartphone :size="19" /> <span>Auf den Startbildschirm</span>
 						</button>
 
-						<button class="menu-link" data-tour="menu-abstimmungen" @click="go('/abstimmungen')">
-							<Vote :size="19" /> <span>Abstimmungen</span>
-						</button>
-						<button v-if="auth.can('beteiligung')" class="menu-link" data-tour="menu-beteiligung" @click="go('/beteiligung')">
-							<BarChart3 :size="19" /> <span>Trainingsbeteiligung</span>
-						</button>
 						<button v-if="auth.isAdmin" class="menu-link" data-tour="menu-kader" @click="go('/kader')">
 							<Users :size="19" /> <span>Kader &amp; Statistik</span>
 						</button>

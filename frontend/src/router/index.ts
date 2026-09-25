@@ -6,19 +6,11 @@ const router = createRouter({
 	routes: [
 		{ path: '/login', name: 'login', component: () => import('../views/LoginView.vue') },
 		{ path: '/register/:token', name: 'register', component: () => import('../views/RegisterView.vue') },
-		{ path: '/', name: 'dashboard', component: () => import('../views/DashboardView.vue') },
-		{ path: '/liga', name: 'liga', component: () => import('../views/LigaView.vue') },
-		{ path: '/termine', name: 'termine', component: () => import('../views/TermineView.vue') },
-		{ path: '/strafen', name: 'strafen', component: () => import('../views/StrafenView.vue') },
+		// Die App ist auf die Kasse (Strafenkatalog) reduziert — sie ist die Startseite.
+		{ path: '/', name: 'strafen', component: () => import('../views/StrafenView.vue') },
 		{ path: '/kader', name: 'kader', component: () => import('../views/KaderView.vue'), meta: { admin: true } },
-		{ path: '/abstimmungen', name: 'abstimmungen', component: () => import('../views/AbstimmungenView.vue') },
-		{ path: '/beteiligung', name: 'beteiligung', component: () => import('../views/BeteiligungView.vue'), meta: { perm: 'beteiligung' } },
 		{ path: '/verwaltung', name: 'verwaltung', component: () => import('../views/EinstellungenView.vue'), meta: { admin: true } },
-		// Alte Pfade umleiten
-		{ path: '/tabelle', redirect: '/liga' },
-		{ path: '/kalender', redirect: '/termine' },
-		{ path: '/einstellungen', redirect: '/verwaltung' },
-		{ path: '/training', redirect: '/' },
+		// Alte/entfernte Pfade landen wieder auf der Kasse.
 		{ path: '/:pathMatch(.*)*', redirect: '/' }
 	]
 });
@@ -30,9 +22,8 @@ router.beforeEach(async (to) => {
 	if (!auth.loaded) await auth.fetchMe();
 	const isPublic = publicRoutes.has(String(to.name));
 	if (!isPublic && !auth.user) return { name: 'login' };
-	if (to.name === 'login' && auth.user) return { name: 'dashboard' };
-	if (to.meta.admin && !auth.isAdmin) return { name: 'dashboard' };
-	if (to.meta.perm && !auth.can(to.meta.perm as 'strafen' | 'termine' | 'beteiligung' | 'umfragen')) return { name: 'dashboard' };
+	if (to.name === 'login' && auth.user) return { path: '/' };
+	if (to.meta.admin && !auth.isAdmin) return { path: '/' };
 });
 
 export default router;

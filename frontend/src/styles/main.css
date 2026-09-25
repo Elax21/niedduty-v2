@@ -75,7 +75,9 @@
 	/* Layout */
 	--app-max: 480px;
 	--appbar-h: 62px;
-	--tabbar-h: 66px;
+	/* App auf die Kasse reduziert — keine untere Tabbar mehr (0 statt 66px),
+	   damit die auf --tabbar-h aufbauenden Abstände unten nicht ins Leere gehen. */
+	--tabbar-h: 0px;
 	--safe-top: env(safe-area-inset-top, 0px);
 	--safe-bottom: env(safe-area-inset-bottom, 0px);
 }

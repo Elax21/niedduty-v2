@@ -40,40 +40,11 @@ export const tourSteps: TourStep[] = [
 		lead: 'Kurzer Rundgang: Ich leuchte an, was wichtig ist — du tippst drauf. Dauert eine Minute, überspringen geht jederzeit.'
 	},
 	{
-		key: 'start',
-		target: '[data-tour="tab-dashboard"]',
+		key: 'kasse',
 		route: '/',
 		menu: false,
-		tap: true,
-		chapter: 'start',
-		lead: 'Tippe auf „Start" — hier landest du beim Öffnen der App.',
-		maxPoints: 3
-	},
-	{
-		key: 'liga',
-		target: '[data-tour="tab-liga"]',
-		menu: false,
-		tap: true,
-		chapter: 'liga',
-		lead: 'Weiter zu „Liga": Tabelle und Spiele direkt von fussball.de.',
-		maxPoints: 2
-	},
-	{
-		key: 'termine',
-		target: '[data-tour="tab-termine"]',
-		menu: false,
-		tap: true,
-		chapter: 'termine',
-		lead: 'Tippe auf „Termine" — Training, Spiele und Zu-/Absagen.',
-		maxPoints: 3
-	},
-	{
-		key: 'kasse',
-		target: '[data-tour="tab-strafen"]',
-		menu: false,
-		tap: true,
 		chapter: 'kasse',
-		lead: 'Und die „Kasse": Strafenkatalog und offene Beträge.',
+		lead: 'Die App ist die „Kasse": Strafenkatalog und offene Beträge — mehr braucht es nicht.',
 		maxPoints: 3
 	},
 	{
@@ -83,21 +54,6 @@ export const tourSteps: TourStep[] = [
 		tap: true,
 		title: 'Das Menü',
 		lead: 'Alles Weitere steckt hier oben rechts. Tippe drauf.'
-	},
-	{
-		key: 'abstimmungen',
-		target: '[data-tour="menu-abstimmungen"]',
-		menu: true,
-		chapter: 'abstimmungen',
-		maxPoints: 2
-	},
-	{
-		key: 'beteiligung',
-		target: '[data-tour="menu-beteiligung"]',
-		menu: true,
-		chapter: 'beteiligung',
-		perm: 'beteiligung',
-		maxPoints: 2
 	},
 	{
 		key: 'kader',

@@ -35,7 +35,12 @@ func main() {
 	if err := r.SetTrustedProxies(cfg.TrustedProxies); err != nil {
 		log.Fatalf("trusted proxies: %v", err)
 	}
-	api.New(db, cfg.SecureCookies).Routes(r)
+	a := api.New(db, cfg.SecureCookies)
+	a.Routes(r)
+	// Kompletten Kader einmalig von fussball.de holen (viele Spieler haben sich
+	// nie registriert, sollen aber Strafen bekommen können). Läuft im Hintergrund
+	// und genau einmal, damit ein träges fussball.de den Start nicht aufhält.
+	go a.ImportSquadOnce()
 	if web.Mount(r) {
 		log.Print("Frontend aus dem Binary eingebunden")
 	}

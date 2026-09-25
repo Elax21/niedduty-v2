@@ -1,5 +1,10 @@
 # Release-Notes
 
+## 25.09.2026 — App auf die Kasse reduziert · kompletter Kader von fussball.de
+
+- 💄 **Nur noch Strafenkatalog/Kasse**: Start, Liga, Termine, Abstimmungen und Trainingsbeteiligung sind aus der Oberfläche entfernt. Die Kasse (`StrafenView`) ist jetzt die Startseite (`/`), die untere Tabbar entfällt (`--tabbar-h: 0px`). Kader und Verwaltung bleiben als Admin-Werkzeuge im Menü. Router leitet alle alten Pfade auf `/` um; die verwaisten Views wurden gelöscht. Rundgang (`lib/tour.ts`) und Hilfe (`lib/help.ts`) auf die verbliebenen Bereiche eingedampft. Die zugehörigen Backend-Endpoints bleiben bestehen (keine Datenmigration), sind aber ungenutzt.
+- ✨ **Kompletter Kader einmalig von fussball.de** (`api.ImportSquadOnce`, Merker `migration.squadImport` in `settings`): Beim ersten Start nach dem Deploy wird der ganze Kader gezogen und jeder noch fehlende Spieler angelegt (Position MF, Status fit) — damit auch nicht registrierte Spieler Strafen bekommen können. Läuft im Hintergrund und idempotent; ist die Mannschafts-ID noch unbekannt oder fussball.de nicht erreichbar, wird der Merker nicht gesetzt und der Import beim nächsten Start wiederholt.
+
 ## 15.08.2026 — Startseite: Spiele, Geburtstage · Kasse filtern
 
 - ✨ **Oben steht der Termin, der wirklich als nächstes kommt**: Die Startseite mischt die fussball.de-Spiele unter die eigenen Termine (Schlüssel `fdm_<id>` wie in der Termine-Seite, damit Zu-/Absagen nicht in zwei Töpfen landen). Heutige Termine fallen aus dem Ticket, sobald sie vorbei sind (Ende, sonst Beginn) — vorher stand das Training noch abends um elf oben.
